@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #FAFAF9;
+  color: #292524;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', 'Noto Serif Ethiopic', serif;
+}
+
+.font-amharic {
+  font-family: 'Noto Serif Ethiopic', serif;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white;
+  }
+  
+  .fixed {
+    position: static !important;
+  }
+}
+
