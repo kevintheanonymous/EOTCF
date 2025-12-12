@@ -26,6 +26,14 @@ const Layout = ({ children }) => {
     { path: '/users', label: t('users'), icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", roles: ['admin'] }
   ]
 
+  // Custom Ethiopian Cross SVG
+  const EOTCCross = () => (
+    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+       <path d="M12 2C10.9 2 10 2.9 10 4V8H6C4.9 8 4 8.9 4 10V14C4 15.1 4.9 16 6 16H10V20C10 21.1 10.9 22 12 22C13.1 22 14 21.1 14 20V16H18C19.1 16 20 15.1 20 14V10C20 8.9 19.1 8 18 8H14V4C14 2.9 13.1 2 12 2ZM12 4V8V4ZM6 10H10H6ZM14 10H18H14ZM10 14V16V14ZM14 14V16V14ZM12 16V20V16Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+       <path d="M12 5L12 7M17 12L19 12M12 17L12 19M5 12L7 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  )
+
   return (
     <div className="min-h-screen bg-warm-parchment flex">
       {/* Sidebar */}
@@ -33,7 +41,7 @@ const Layout = ({ children }) => {
         <div className="p-8 pb-4">
           <div className="flex items-center gap-3 text-deep-gold">
             <div className="p-2 bg-amber-50 rounded-lg">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+              <EOTCCross />
             </div>
             <h1 className="text-xl font-serif font-bold text-dark-brown">EOTC Toulouse</h1>
           </div>
