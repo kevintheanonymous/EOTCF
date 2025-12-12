@@ -24,7 +24,7 @@ const Dashboard = () => {
   const loadData = async () => {
     setLoading(true)
     
-    // Load transactions
+    // 1. Prepare the queries (don't await them yet)
     const transactionsRef = collection(db, 'transactions')
     const start = new Date(startDate)
     const end = new Date(endDate)
@@ -37,23 +37,33 @@ const Dashboard = () => {
       orderBy('date', 'desc')
     )
     
-    const transactionsSnap = await getDocs(q)
-    const transactionsData = transactionsSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-    setTransactions(transactionsData)
-
-    // Load inventory
     const inventoryRef = collection(db, 'inventory')
-    const inventorySnap = await getDocs(inventoryRef)
-    const inventoryData = inventorySnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-    setInventory(inventoryData)
-    
-    setLoading(false)
+
+    try {
+      // 2. OPTIMIZATION: Fetch both collections in parallel
+      const [transactionsSnap, inventorySnap] = await Promise.all([
+        getDocs(q),
+        getDocs(inventoryRef)
+      ])
+
+      // 3. Process Transactions
+      const transactionsData = transactionsSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setTransactions(transactionsData)
+
+      // 4. Process Inventory
+      const inventoryData = inventorySnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setInventory(inventoryData)
+    } catch (error) {
+      console.error("Error loading dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const calculateStats = () => {
