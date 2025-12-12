@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // ⚠️ CHANGE THIS TO THE EMAIL YOU USE TO LOGIN ⚠️
   const ADMIN_EMAIL = 'eotctoulousefinance@gmail.com' 
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         setCurrentUser(user)
         
-        // 1. Fetch user data immediately
+        // Fetch user data
         const userRef = doc(db, 'users', user.uid)
         const userSnap = await getDoc(userRef)
         
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }) => {
           }
           setUserRole(role)
         } else {
-          // 2. No profile exists yet? Create one.
+          // No profile exists yet? Create one.
           if (user.email === ADMIN_EMAIL) {
             // Create Admin Profile
             await setDoc(userRef, {
@@ -84,7 +85,6 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
-      // Setup the user document
       const role = email === ADMIN_EMAIL ? 'admin' : 'pending'
       
       await setDoc(doc(db, 'users', user.uid), {
