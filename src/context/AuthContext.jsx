@@ -27,48 +27,53 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // ⚠️ CHANGE THIS TO THE EMAIL YOU USE TO LOGIN ⚠️
+  // ⚠️ VERIFY: Is this EXACTLY the email you type when logging in?
   const ADMIN_EMAIL = 'eotctoulousefinance@gmail.com' 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth State Changed. User:", user ? user.email : "Logged Out");
+      
       if (user) {
         setCurrentUser(user)
         
-        // Fetch user data
-        const userRef = doc(db, 'users', user.uid)
-        const userSnap = await getDoc(userRef)
-        
-        if (userSnap.exists()) {
-          let role = userSnap.data().role
+        try {
+          const userRef = doc(db, 'users', user.uid)
+          console.log("Checking Database path:", userRef.path); // Should say "users/YOUR_UID"
           
-          // Auto-fix: If this is the main admin but role is wrong, fix it now
-          if (user.email === ADMIN_EMAIL && role !== 'admin') {
-             await setDoc(userRef, { role: 'admin' }, { merge: true })
-             role = 'admin'
-          }
-          setUserRole(role)
-        } else {
-          // No profile exists yet? Create one.
-          if (user.email === ADMIN_EMAIL) {
-            // Create Admin Profile
+          const userSnap = await getDoc(userRef)
+          
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            console.log("❌ DATABASE SAYS ROLE IS:", data.role); // IF THIS SAYS 'pending', THAT IS THE ISSUE
+            
+            let role = data.role
+            
+            // Auto-fixer
+            if (user.email === ADMIN_EMAIL && role !== 'admin') {
+               console.log("⚠️ Email matches Admin, but role is wrong. Attempting to fix...");
+               await setDoc(userRef, { role: 'admin' }, { merge: true })
+               role = 'admin'
+               console.log("✅ Role auto-corrected to admin");
+            }
+            setUserRole(role)
+          } else {
+            console.log("❌ DOCUMENT DOES NOT EXIST in 'users' collection.");
+            
+            // Create profile if missing
+            const role = (user.email === ADMIN_EMAIL) ? 'admin' : 'pending';
+            console.log("Creating new profile with role:", role);
+            
             await setDoc(userRef, {
               email: user.email,
-              firstName: 'Admin',
-              lastName: 'User',
-              role: 'admin',
+              role: role,
               createdAt: new Date()
             })
-            setUserRole('admin')
-          } else {
-            // Create Pending Profile for everyone else
-            await setDoc(userRef, {
-                email: user.email,
-                role: 'pending',
-                createdAt: new Date()
-            })
-            setUserRole('pending')
+            setUserRole(role)
           }
+        } catch (err) {
+          console.error("🔥 CRITICAL DATABASE ERROR:", err.message);
+          console.error("Check your Firestore Security Rules!");
         }
       } else {
         setCurrentUser(null)
@@ -84,16 +89,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
-      
       const role = email === ADMIN_EMAIL ? 'admin' : 'pending'
-      
-      await setDoc(doc(db, 'users', user.uid), {
-        ...userData,
-        email,
-        role: role,
-        createdAt: new Date()
-      })
-      
+      await setDoc(doc(db, 'users', user.uid), { ...userData, email, role, createdAt: new Date() })
       return { success: true }
     } catch (error) {
       return { success: false, error: error.message }
@@ -118,14 +115,7 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const value = {
-    currentUser,
-    userRole,
-    signup,
-    login,
-    logout,
-    loading
-  }
+  const value = { currentUser, userRole, signup, login, logout, loading }
 
   return (
     <AuthContext.Provider value={value}>
