@@ -23,6 +23,7 @@ const StatCard = ({ title, value, colorClass, icon }) => (
 )
 
 const Dashboard = () => {
+  // Use Date objects for the picker
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), 0, 1))
   const [endDate, setEndDate] = useState(new Date())
   
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const loadData = async () => {
     setLoading(true)
     
+    // Set time to start of day and end of day correctly
     const start = new Date(startDate)
     start.setHours(0, 0, 0, 0)
     
@@ -131,7 +133,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Date Filter Card - FIXED */}
+      {/* Date Filter Card - FULLY FIXED */}
       <div className="card flex flex-wrap gap-6 items-end no-print bg-white/80 backdrop-blur z-20 relative overflow-visible">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">{t('startDate')}</label>
@@ -139,12 +141,12 @@ const Dashboard = () => {
             <DatePicker 
                 selected={startDate} 
                 onChange={(date) => setStartDate(date)} 
-                className="input-field w-full cursor-pointer relative z-10 !pr-10" // added padding-right
+                className="input-field w-full cursor-pointer relative z-10 !pr-12" /* Added more padding on right */
                 dateFormat="MMM d, yyyy"
                 popperClassName="!z-[100]" 
             />
-            {/* Z-index increased to 20 to sit ON TOP of input */}
-            <div className="absolute right-3 top-3.5 text-deep-gold pointer-events-none z-20">
+            {/* Perfectly centered icon, sitting on top of input */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-deep-gold pointer-events-none z-20">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
           </div>
@@ -155,13 +157,13 @@ const Dashboard = () => {
             <DatePicker 
                 selected={endDate} 
                 onChange={(date) => setEndDate(date)} 
-                className="input-field w-full cursor-pointer relative z-10 !pr-10" // added padding-right
+                className="input-field w-full cursor-pointer relative z-10 !pr-12" /* Added more padding on right */
                 dateFormat="MMM d, yyyy"
                 popperClassName="!z-[100]" 
-                popperPlacement="bottom-end" // <--- FIXED: Aligns calendar to the right edge
+                popperPlacement="bottom-end"
             />
-            {/* Z-index increased to 20 */}
-            <div className="absolute right-3 top-3.5 text-deep-gold pointer-events-none z-20">
+            {/* Perfectly centered icon, sitting on top of input */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-deep-gold pointer-events-none z-20">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
           </div>
