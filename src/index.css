@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* This changes the blue selection color in Date Pickers & Checkboxes to Gold */
+    accent-color: #B45309; 
+  }
+
   body {
     @apply bg-warm-parchment text-dark-brown antialiased bg-subtle-pattern;
   }
@@ -27,10 +32,27 @@
   .input-field {
     @apply w-full px-4 py-3 rounded-xl border border-stone-200 bg-white/50 backdrop-blur-sm
     focus:outline-none focus:ring-2 focus:ring-deep-gold/20 focus:border-deep-gold
-    transition-all duration-200 placeholder:text-stone-400;
+    transition-all duration-200 placeholder:text-stone-400
+    text-dark-brown; /* Ensures text is dark */
   }
 
   .card {
     @apply bg-white rounded-2xl shadow-soft border border-stone-100/50 p-6;
   }
+}
+
+/* --- CUSTOM DATE PICKER STYLING --- */
+
+/* This targets the calendar icon inside the date input */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  /* This filter turns the default black icon to a warm brown/gold color */
+  filter: invert(19%) sepia(6%) saturate(1359%) hue-rotate(338deg) brightness(94%) contrast(88%);
+  opacity: 0.6;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.1);
 }
