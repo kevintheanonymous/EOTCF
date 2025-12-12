@@ -23,8 +23,10 @@ const StatCard = ({ title, value, colorClass, icon }) => (
 )
 
 const Dashboard = () => {
+  // Use Date objects for the picker
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), 0, 1))
   const [endDate, setEndDate] = useState(new Date())
+  
   const [transactions, setTransactions] = useState([])
   const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
@@ -33,18 +35,41 @@ const Dashboard = () => {
   const { language } = useLanguage()
   const t = (key) => getTranslation(language, key)
 
-  useEffect(() => { loadData() }, [startDate, endDate])
+  useEffect(() => {
+    loadData()
+  }, [startDate, endDate])
 
   const loadData = async () => {
     setLoading(true)
-    const start = new Date(startDate); start.setHours(0, 0, 0, 0)
-    const end = new Date(endDate); end.setHours(23, 59, 59, 999)
-    const q = query(collection(db, 'transactions'), where('date', '>=', start), where('date', '<=', end), orderBy('date', 'desc'))
+    
+    const start = new Date(startDate)
+    start.setHours(0, 0, 0, 0)
+    
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+    
+    const q = query(
+      collection(db, 'transactions'),
+      where('date', '>=', start),
+      where('date', '<=', end),
+      orderBy('date', 'desc')
+    )
+    
+    const inventoryRef = collection(db, 'inventory')
+
     try {
-      const [txSnap, invSnap] = await Promise.all([getDocs(q), getDocs(collection(db, 'inventory'))])
-      setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setInventory(invSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-    } catch (error) { console.error(error) } finally { setLoading(false) }
+      const [transactionsSnap, inventorySnap] = await Promise.all([
+        getDocs(q),
+        getDocs(inventoryRef)
+      ])
+
+      setTransactions(transactionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+      setInventory(inventorySnap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    } catch (error) {
+      console.error("Error loading dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const stats = (() => {
@@ -56,18 +81,34 @@ const Dashboard = () => {
 
   const getAiInsight = async () => {
     setAiLoading(true)
-    const prompt = `Executive summary. Income: ${stats.income}, Expenses: ${stats.expenses}, Net: ${stats.net}, Stock: ${stats.stock}. Respond in ${language}.`
+    const prompt = `Provide a 3-sentence executive summary of the financial status. Income: ${stats.income} euros, Expenses: ${stats.expenses} euros, Net Balance: ${stats.net} euros, Total Stock Value: ${stats.stock} euros. Respond in ${language === 'en' ? 'English' : language === 'fr' ? 'French' : 'Amharic'}.`
+    
     try {
-      const res = await model.generateContent(prompt); setAiInsight(res.response.text());
-    } catch (e) { setAiInsight('AI Unavailable') } finally { setAiLoading(false) }
+      const result = await model.generateContent(prompt)
+      setAiInsight(result.response.text())
+    } catch (error) {
+      setAiInsight('Unable to generate AI insight at this time.')
+    }
+    setAiLoading(false)
   }
 
   const exportToExcel = () => {
     const headers = [t('date'), t('type'), t('category'), t('amount'), t('description'), t('donorName')]
-    const rows = transactions.map(t => [format(t.date?.toDate() || new Date(), 'yyyy-MM-dd'), t.type, t.category, t.amount, t.description || '', t.donorName || ''])
+    const rows = transactions.map(t => [
+      format(t.date?.toDate() || new Date(), 'yyyy-MM-dd'),
+      t.type,
+      t.category,
+      t.amount,
+      t.description || '',
+      t.donorName || ''
+    ])
+    
     const csv = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'report.csv'; link.click();
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `transactions_${format(startDate, 'yyyy-MM-dd')}_${format(endDate, 'yyyy-MM-dd')}.csv`
+    link.click()
   }
 
   if (loading) return <div className="flex h-screen items-center justify-center text-deep-gold animate-pulse">Loading...</div>
@@ -80,20 +121,31 @@ const Dashboard = () => {
           <p className="text-stone-500">Overview for {format(startDate, 'MMM d, yyyy')} - {format(endDate, 'MMM d, yyyy')}</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={exportToExcel} className="btn-secondary text-sm flex items-center gap-2">Export CSV</button>
-          <button onClick={() => window.print()} className="btn-primary text-sm flex items-center gap-2">Print Report</button>
+          <button onClick={exportToExcel} className="btn-secondary text-sm flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+            {t('exportExcel')}
+          </button>
+          <button onClick={() => window.print()} className="btn-primary text-sm flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            {t('exportPDF')}
+          </button>
         </div>
       </div>
 
-      <div className="card flex flex-wrap gap-6 items-end no-print bg-white/90 backdrop-blur z-20 relative overflow-visible">
+      {/* Date Filter Card - FULLY FIXED */}
+      <div className="card flex flex-wrap gap-6 items-end no-print bg-white z-20 relative overflow-visible">
         <div className="flex-1 min-w-[220px]">
           <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">{t('startDate')}</label>
           <div className="relative z-30">
             <DatePicker 
-                selected={startDate} onChange={(d) => setStartDate(d)} 
-                className="input-field w-full cursor-pointer relative z-10 !pr-14 bg-white" // Added Padding
-                dateFormat="MMM d, yyyy" popperClassName="!z-[100]" 
+                selected={startDate} 
+                onChange={(date) => setStartDate(date)} 
+                // Fix 1: !pr-12 adds padding on the right so text doesn't touch icon
+                className="input-field w-full cursor-pointer relative z-10 !pr-12 bg-white" 
+                dateFormat="MMM d, yyyy"
+                popperClassName="!z-[100]" 
             />
+            {/* Fix 2: Icon centered perfectly and darker color */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-700 pointer-events-none z-20">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
@@ -103,11 +155,15 @@ const Dashboard = () => {
           <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">{t('endDate')}</label>
           <div className="relative z-30">
             <DatePicker 
-                selected={endDate} onChange={(d) => setEndDate(d)} 
-                className="input-field w-full cursor-pointer relative z-10 !pr-14 bg-white" // Added Padding
-                dateFormat="MMM d, yyyy" popperClassName="!z-[100]" 
-                popperPlacement="bottom-end" // Aligns to right edge
+                selected={endDate} 
+                onChange={(date) => setEndDate(date)} 
+                // Fix 1: !pr-12 adds padding on the right
+                className="input-field w-full cursor-pointer relative z-10 !pr-12 bg-white"
+                dateFormat="MMM d, yyyy"
+                popperClassName="!z-[100]" 
+                popperPlacement="bottom-end"
             />
+            {/* Fix 2: Icon centered perfectly and darker color */}
             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-700 pointer-events-none z-20">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
@@ -115,22 +171,37 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
-        <StatCard title={t('income')} value={`${stats.income.toFixed(2)} €`} colorClass="text-emerald-600 bg-emerald-600" icon={<span className="text-xl">💰</span>} />
-        <StatCard title={t('expenses')} value={`${stats.expenses.toFixed(2)} €`} colorClass="text-red-600 bg-red-600" icon={<span className="text-xl">💸</span>} />
-        <StatCard title={t('netBalance')} value={`${stats.net.toFixed(2)} €`} colorClass={stats.net >= 0 ? "text-emerald-600 bg-emerald-600" : "text-red-600 bg-red-600"} icon={<span className="text-xl">⚖️</span>} />
-        <StatCard title={t('totalStockValue')} value={`${stats.stock.toFixed(2)} €`} colorClass="text-amber-600 bg-amber-600" icon={<span className="text-xl">📦</span>} />
+        <StatCard title={t('income')} value={`${stats.income.toFixed(2)} €`} colorClass="text-emerald-600 bg-emerald-600" 
+          icon={<svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>} />
+        <StatCard title={t('expenses')} value={`${stats.expenses.toFixed(2)} €`} colorClass="text-red-600 bg-red-600" 
+          icon={<svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>} />
+        <StatCard title={t('netBalance')} value={`${stats.net.toFixed(2)} €`} colorClass={stats.net >= 0 ? "text-emerald-600 bg-emerald-600" : "text-red-600 bg-red-600"} 
+          icon={<svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+        <StatCard title={t('totalStockValue')} value={`${stats.stock.toFixed(2)} €`} colorClass="text-amber-600 bg-amber-600" 
+          icon={<svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>} />
       </div>
 
+      {/* AI Section */}
       <div className="bg-gradient-to-br from-amber-50 via-white to-white rounded-2xl p-8 border border-amber-100 shadow-soft relative overflow-hidden no-print group z-10">
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-gold-gradient opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity duration-500"></div>
         <h2 className="text-xl font-serif font-bold text-deep-gold mb-4 flex items-center gap-2 relative z-10">
-           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c1.1 0 2 .9 2 2v3h3c1.1 0 2 .9 2 2s-.9 2-2 2h-3v3c0 1.1-.9 2-2 2s-2-.9-2-2v-3H7c-1.1 0-2-.9-2-2s.9-2 2-2h3V4c0-1.1.9-2 2-2z M12 22v-4 M9 18l3 4 3-4" /></svg>
+          {/* Replaced Icon with Ethiopian Orthodox Cross */}
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c1.1 0 2 .9 2 2v3h3c1.1 0 2 .9 2 2s-.9 2-2 2h-3v3c0 1.1-.9 2-2 2s-2-.9-2-2v-3H7c-1.1 0-2-.9-2-2s.9-2 2-2h3V4c0-1.1.9-2 2-2z M12 22v-4 M9 18l3 4 3-4" />
+          </svg>
           {t('aiFinancialAdvisor')}
         </h2>
-        <p className="text-stone-600 leading-relaxed max-w-4xl relative z-10">{aiLoading ? t('loading') : (aiInsight || "Click the button below to generate an AI analysis.")}</p>
-        <button onClick={getAiInsight} disabled={aiLoading} className="mt-6 btn-primary text-sm px-6 py-2 relative z-10">{aiLoading ? 'Thinking...' : 'Generate Insight'}</button>
+        <p className="text-stone-600 leading-relaxed max-w-4xl relative z-10">
+          {aiLoading ? t('loading') : (aiInsight || "Click the button below to generate an AI analysis of your current financial standing.")}
+        </p>
+        <button onClick={getAiInsight} disabled={aiLoading} className="mt-6 btn-primary text-sm px-6 py-2 relative z-10">
+          {aiLoading ? 'Analyzing...' : 'Generate Insight'}
+        </button>
       </div>
 
+      {/* Ledger Table */}
       <div className="card overflow-hidden !p-0 border border-stone-100 shadow-soft z-10">
         <div className="p-6 border-b border-stone-50 bg-stone-50/30">
           <h2 className="text-lg font-serif font-bold text-dark-brown">{t('ledger')}</h2>
@@ -144,18 +215,32 @@ const Dashboard = () => {
                 <th className="px-6 py-4 text-left">{t('category')}</th>
                 <th className="px-6 py-4 text-left">{t('amount')}</th>
                 <th className="px-6 py-4 text-left">{t('description')}</th>
+                <th className="px-6 py-4 text-left">{t('donorName')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {transactions.map((t) => (
-                <tr key={t.id} className="hover:bg-amber-50/30">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600">{format(t.date?.toDate() || new Date(), 'MMM d, yyyy')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${t.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{t.type}</span></td>
-                  <td className="px-6 py-4 text-sm font-medium">{t.category}</td>
-                  <td className={`px-6 py-4 text-sm font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{t.amount?.toFixed(2)} €</td>
-                  <td className="px-6 py-4 text-sm text-stone-500 max-w-xs truncate">{t.description || '-'}</td>
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-stone-400 italic">{t('noTransactions')}</td>
                 </tr>
-              ))}
+              ) : (
+                transactions.map((t) => (
+                  <tr key={t.id} className="hover:bg-amber-50/30 transition-colors duration-150">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600">{format(t.date?.toDate() || new Date(), 'MMM d, yyyy')}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${t.type === 'income' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        {t.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-800 font-medium">{t.category}</td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {t.amount?.toFixed(2)} €
+                    </td>
+                    <td className="px-6 py-4 text-sm text-stone-500 max-w-xs truncate">{t.description || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-stone-500">{t.donorName || '-'}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
