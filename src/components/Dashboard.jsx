@@ -186,7 +186,10 @@ const Dashboard = () => {
       <div className="bg-gradient-to-br from-amber-50 via-white to-white rounded-2xl p-8 border border-amber-100 shadow-soft relative overflow-hidden no-print group z-10">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-gold-gradient opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity duration-500"></div>
         <h2 className="text-xl font-serif font-bold text-deep-gold mb-4 flex items-center gap-2 relative z-10">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          {/* Replaced Icon with Ethiopian Orthodox Cross */}
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2c1.1 0 2 .9 2 2v3h3c1.1 0 2 .9 2 2s-.9 2-2 2h-3v3c0 1.1-.9 2-2 2s-2-.9-2-2v-3H7c-1.1 0-2-.9-2-2s.9-2 2-2h3V4c0-1.1.9-2 2-2z M12 22v-4 M9 18l3 4 3-4" />
+          </svg>
           {t('aiFinancialAdvisor')}
         </h2>
         <p className="text-stone-600 leading-relaxed max-w-4xl relative z-10">
