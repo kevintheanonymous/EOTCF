@@ -4,13 +4,14 @@ import { getFirestore } from 'firebase/firestore'
 
 // Firebase configuration - Replace with your actual config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-}
+  apiKey: "AIzaSyC482JiNDD5L0HJTq0ySqZjSPygG68OScs",
+  authDomain: "eotc-b43ba.firebaseapp.com",
+  projectId: "eotc-b43ba",
+  storageBucket: "eotc-b43ba.firebasestorage.app",
+  messagingSenderId: "77557273186",
+  appId: "1:77557273186:web:143bc82aa4c7bd663d373b",
+  measurementId: "G-9E5TZ26CL4"
+};
 
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
