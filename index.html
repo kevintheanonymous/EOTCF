@@ -90,16 +90,17 @@
 
         // --- GLOBAL VARIABLES (REPLACE WITH YOURS) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'eotc-toulouse-prod';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "REPLACE_WITH_YOUR_ACTUAL_API_KEY",
-            authDomain: "REPLACE_WITH_YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-            storageBucket: "REPLACE_WITH_YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
-            appId: "REPLACE_WITH_YOUR_APP_ID"
-        };
+        const firebaseConfig = {
+  apiKey: "AIzaSyC482JiNDD5L0HJTq0ySqZjSPygG68OScs",
+  authDomain: "eotc-b43ba.firebaseapp.com",
+  projectId: "eotc-b43ba",
+  storageBucket: "eotc-b43ba.firebasestorage.app",
+  messagingSenderId: "77557273186",
+  appId: "1:77557273186:web:143bc82aa4c7bd663d373b",
+  measurementId: "G-9E5TZ26CL4"
+};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const apiKey = ""; // Gemini API Key
+        const apiKey = "AIzaSyDG174_xkRftKTgWy0Fu1ef8jSmlSxYUuQ"; // Gemini API Key
 
         // --- FIREBASE INIT ---
         const app = initializeApp(firebaseConfig);
