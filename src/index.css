@@ -29,84 +29,77 @@
   }
 }
 
-/* --- FIXED CALENDAR THEME --- */
+/* --- PERFECT CALENDAR THEME --- */
 .react-datepicker-wrapper {
   width: 100%;
 }
 
-/* The Main Card */
 .react-datepicker {
-  @apply !font-sans !border-0 !rounded-2xl !shadow-2xl !bg-white !p-5;
+  @apply !font-sans !border-0 !rounded-2xl !shadow-2xl !bg-white !p-4;
   font-family: 'Inter', sans-serif !important;
-  width: 320px !important; /* Forces a nice wide card */
+  width: 320px !important;
 }
 
-/* The Header (Month/Year) - FIXED OVERLAP */
+/* Header Area */
 .react-datepicker__header {
-  @apply !bg-white !border-0 !pt-0 !pb-4;
+  @apply !bg-white !border-0 !pt-2 !pb-4;
   position: relative;
 }
 
+/* Centered Month Name */
 .react-datepicker__current-month {
   @apply !font-serif !text-dark-brown !text-xl !font-bold !mb-4;
-  padding-top: 8px;
+  padding-top: 4px; /* Slight adjustment for alignment */
 }
 
-/* Navigation Arrows - FIXED POSITION */
+/* Navigation Arrows - Pushed to corners */
 .react-datepicker__navigation {
-  top: 24px !important; /* Moves arrows down to align with text */
-  width: 30px;
-  height: 30px;
+  top: 15px !important;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background-color: #f5f5f4; /* Stone-100 background for arrows */
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s;
 }
 .react-datepicker__navigation:hover {
-  background-color: #e7e5e4; /* Darker on hover */
+  @apply bg-stone-100;
 }
-.react-datepicker__navigation--previous {
-  left: 20px !important;
-}
-.react-datepicker__navigation--next {
-  right: 20px !important;
-}
+.react-datepicker__navigation--previous { left: 15px !important; }
+.react-datepicker__navigation--next { right: 15px !important; }
 
-/* Remove the default ugly triangles inside arrows */
+/* Arrow Icons */
 .react-datepicker__navigation-icon::before {
-  border-color: #57534e !important; /* Stone-600 */
-  top: 5px !important;
+  border-color: #57534e !important; /* Dark Stone Color */
+  border-width: 2px 2px 0 0 !important;
+  width: 8px !important;
+  height: 8px !important;
+  top: 10px !important; /* Centers the arrow inside the circle */
 }
 
-/* Day Names (Su, Mo, Tu...) */
+/* Day Names */
 .react-datepicker__day-name {
   @apply !text-stone-400 !font-bold !uppercase !text-xs;
   width: 2.5rem !important;
-  margin: 0.2rem !important;
+  margin: 0.1rem !important;
 }
 
-/* The Days Grid */
-.react-datepicker__month {
-  margin: 0 !important;
-}
-
-/* Individual Days */
+/* Days */
 .react-datepicker__day {
   @apply !font-medium !text-stone-600 transition-all duration-200;
   width: 2.5rem !important;
   height: 2.5rem !important;
   line-height: 2.5rem !important;
-  margin: 0.2rem !important;
-  border-radius: 9999px !important; /* Perfect circle */
+  margin: 0.1rem !important;
+  border-radius: 9999px !important;
 }
 
 .react-datepicker__day:hover {
   @apply !bg-stone-100 !text-dark-brown !font-bold;
 }
 
-/* Selected Day (Solid Gold Circle) */
+/* Selected State - Gold Circle */
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
   background-color: #B45309 !important; /* Deep Gold */
@@ -119,9 +112,8 @@
 .react-datepicker__day--today {
   color: #B45309;
   font-weight: 900;
+  position: relative;
 }
 
-/* Remove Triangle at top */
-.react-datepicker__triangle {
-  display: none;
-}
+/* Remove Triangle */
+.react-datepicker__triangle { display: none; }
