@@ -27,65 +27,45 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Initialize admin user if needed
-  const initializeAdmin = async (user) => {
-    // Check for the specific admin email
-    if (user.email === 'eotctoulousefinance@gmail.com') {
-      const userRef = doc(db, 'users', user.uid)
-      const userSnap = await getDoc(userRef)
-      
-      if (!userSnap.exists()) {
-        // Create the admin profile if it doesn't exist
-        await setDoc(userRef, {
-          email: user.email,
-          firstName: 'EOTC',
-          lastName: 'Finance Admin',
-          phoneNumber: '',
-          role: 'admin',
-          createdAt: new Date()
-        })
-        setUserRole('admin')
-      } else {
-        // Ensure the role is admin if the email matches
-        if (userSnap.data().role !== 'admin') {
-            await setDoc(userRef, { role: 'admin' }, { merge: true })
-        }
-        setUserRole('admin')
-      }
-    }
-  }
+  const ADMIN_EMAIL = 'eotctoulousefinance@gmail.com' 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user)
         
-        // OPTIMIZATION: Fetch user data ONCE
+        // 1. Fetch user data immediately
         const userRef = doc(db, 'users', user.uid)
         const userSnap = await getDoc(userRef)
         
         if (userSnap.exists()) {
           let role = userSnap.data().role
           
-          // Check if this is the Main Admin needing a role fix
-          if (user.email === 'eotctoulouse@gmail.com' && role !== 'admin') {
+          // Auto-fix: If this is the main admin but role is wrong, fix it now
+          if (user.email === ADMIN_EMAIL && role !== 'admin') {
              await setDoc(userRef, { role: 'admin' }, { merge: true })
              role = 'admin'
           }
           setUserRole(role)
         } else {
-          // Document doesn't exist yet
-          if (user.email === 'eotctoulouse@gmail.com') {
-            // Create Admin Profile immediately
+          // 2. No profile exists yet? Create one.
+          if (user.email === ADMIN_EMAIL) {
+            // Create Admin Profile
             await setDoc(userRef, {
               email: user.email,
-              firstName: 'EOTC',
-              lastName: 'Finance Admin',
+              firstName: 'Admin',
+              lastName: 'User',
               role: 'admin',
               createdAt: new Date()
             })
             setUserRole('admin')
           } else {
+            // Create Pending Profile for everyone else
+            await setDoc(userRef, {
+                email: user.email,
+                role: 'pending',
+                createdAt: new Date()
+            })
             setUserRole('pending')
           }
         }
@@ -104,23 +84,15 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
-      // If signing up as the main admin, initialize as admin immediately
-      if (email === 'eotctoulousefinance@gmail.com') {
-         await setDoc(doc(db, 'users', user.uid), {
-            ...userData,
-            email,
-            role: 'admin',
-            createdAt: new Date()
-         })
-      } else {
-         // Create user document with 'pending' role for everyone else
-         await setDoc(doc(db, 'users', user.uid), {
-            ...userData,
-            email,
-            role: 'pending',
-            createdAt: new Date()
-         })
-      }
+      // Setup the user document
+      const role = email === ADMIN_EMAIL ? 'admin' : 'pending'
+      
+      await setDoc(doc(db, 'users', user.uid), {
+        ...userData,
+        email,
+        role: role,
+        createdAt: new Date()
+      })
       
       return { success: true }
     } catch (error) {
