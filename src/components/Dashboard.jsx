@@ -133,32 +133,34 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Date Filter Card */}
-      <div className="card flex flex-wrap gap-6 items-end no-print bg-white/80 backdrop-blur">
+      {/* Date Filter Card - NOW USING MODERN DATEPICKER */}
+      <div className="card flex flex-wrap gap-6 items-end no-print bg-white/80 backdrop-blur z-20 relative">
         <div className="flex-1 min-w-[200px]">
           <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">{t('startDate')}</label>
-          <div className="relative">
+          <div className="relative z-30">
             <DatePicker 
                 selected={startDate} 
                 onChange={(date) => setStartDate(date)} 
-                className="input-field w-full cursor-pointer"
+                className="input-field w-full cursor-pointer relative z-10"
                 dateFormat="MMM d, yyyy"
+                popperClassName="!z-[100]" // Fixes overlap
             />
-            <div className="absolute right-4 top-3.5 text-deep-gold pointer-events-none">
+            <div className="absolute right-4 top-3.5 text-deep-gold pointer-events-none z-0">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
           </div>
         </div>
         <div className="flex-1 min-w-[200px]">
           <label className="block text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">{t('endDate')}</label>
-          <div className="relative">
+          <div className="relative z-30">
             <DatePicker 
                 selected={endDate} 
                 onChange={(date) => setEndDate(date)} 
-                className="input-field w-full cursor-pointer"
+                className="input-field w-full cursor-pointer relative z-10"
                 dateFormat="MMM d, yyyy"
+                popperClassName="!z-[100]" // Fixes overlap
             />
-            <div className="absolute right-4 top-3.5 text-deep-gold pointer-events-none">
+            <div className="absolute right-4 top-3.5 text-deep-gold pointer-events-none z-0">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
           </div>
@@ -166,7 +168,7 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
         <StatCard title={t('income')} value={`${stats.income.toFixed(2)} €`} colorClass="text-emerald-600 bg-emerald-600" 
           icon={<svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>} />
         <StatCard title={t('expenses')} value={`${stats.expenses.toFixed(2)} €`} colorClass="text-red-600 bg-red-600" 
@@ -178,7 +180,7 @@ const Dashboard = () => {
       </div>
 
       {/* AI Section */}
-      <div className="bg-gradient-to-br from-amber-50 via-white to-white rounded-2xl p-8 border border-amber-100 shadow-soft relative overflow-hidden no-print group">
+      <div className="bg-gradient-to-br from-amber-50 via-white to-white rounded-2xl p-8 border border-amber-100 shadow-soft relative overflow-hidden no-print group z-10">
         <div className="absolute -top-10 -right-10 w-40 h-40 bg-gold-gradient opacity-10 rounded-full blur-3xl group-hover:opacity-20 transition-opacity duration-500"></div>
         <h2 className="text-xl font-serif font-bold text-deep-gold mb-4 flex items-center gap-2 relative z-10">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -193,7 +195,7 @@ const Dashboard = () => {
       </div>
 
       {/* Ledger Table */}
-      <div className="card overflow-hidden !p-0 border border-stone-100 shadow-soft">
+      <div className="card overflow-hidden !p-0 border border-stone-100 shadow-soft z-10">
         <div className="p-6 border-b border-stone-50 bg-stone-50/30">
           <h2 className="text-lg font-serif font-bold text-dark-brown">{t('ledger')}</h2>
         </div>
