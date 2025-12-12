@@ -1,123 +1,112 @@
 import React, { useState, useEffect } from 'react'
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useLanguage } from '../context/LanguageContext'
 import { getTranslation } from '../utils/translations'
 import { format } from 'date-fns'
 import { model } from '../config/gemini'
+import DatePicker from 'react-datepicker' // <--- IMPORT
+import "react-datepicker/dist/react-datepicker.css" // <--- IMPORT CSS
 
-const StatCard = ({ title, value, color, icon }) => (
-  <div className="card hover:-translate-y-1 transition-transform duration-300">
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-sm font-medium text-stone-500 mb-1">{title}</p>
-        <h3 className={`text-3xl font-bold ${color}`}>{value}</h3>
-      </div>
-      <div className={`p-3 rounded-xl bg-opacity-10 ${color.replace('text-', 'bg-')}`}>
-        {icon}
-      </div>
-    </div>
-  </div>
-)
-
-const Dashboard = () => {
-  const [startDate, setStartDate] = useState(format(new Date(new Date().getFullYear(), 0, 1), 'yyyy-MM-dd'))
-  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+const Transactions = () => {
   const [transactions, setTransactions] = useState([])
-  const [inventory, setInventory] = useState([])
   const [loading, setLoading] = useState(true)
-  const [aiInsight, setAiInsight] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [magicFillText, setMagicFillText] = useState('')
+  const [magicFillLoading, setMagicFillLoading] = useState(false)
+  
+  // Convert string date to JS Date object for the picker
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  
+  const [formData, setFormData] = useState({
+    type: 'income',
+    category: '',
+    amount: '',
+    description: '',
+    donorName: ''
+  })
   const { language } = useLanguage()
   const t = (key) => getTranslation(language, key)
 
-  useEffect(() => { loadData() }, [startDate, endDate])
+  useEffect(() => { loadTransactions() }, [])
 
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const start = new Date(startDate); const end = new Date(endDate); end.setHours(23, 59, 59, 999);
-      const q = query(collection(db, 'transactions'), where('date', '>=', start), where('date', '<=', end), orderBy('date', 'desc'));
-      const [txSnap, invSnap] = await Promise.all([getDocs(q), getDocs(collection(db, 'inventory'))]);
-      setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setInventory(invSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-    } catch (error) { console.error(error) } finally { setLoading(false) }
+  const loadTransactions = async () => {
+    const transactionsRef = collection(db, 'transactions')
+    const q = query(transactionsRef, orderBy('date', 'desc'))
+    const snapshot = await getDocs(q)
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    setTransactions(data)
+    setLoading(false)
   }
 
-  const stats = (() => {
-    const inc = transactions.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
-    const exp = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
-    const stock = inventory.reduce((s, i) => s + ((i.price || 0) * (i.quantity || 0)), 0);
-    return { income: inc, expenses: exp, net: inc - exp, stock };
-  })();
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
 
-  const getAiInsight = async () => {
-    setAiLoading(true)
-    const prompt = `Executive summary. Income: ${stats.income}, Expenses: ${stats.expenses}, Net: ${stats.net}, Stock: ${stats.stock}. Respond in ${language === 'en' ? 'English' : language === 'fr' ? 'French' : 'Amharic'}. Keep it encouraging.`
+  const handleMagicFill = async () => {
+    setMagicFillLoading(true)
+    const prompt = `Parse: "${magicFillText}". Return JSON: { type, category, amount, date (YYYY-MM-DD), description, donorName }`
     try {
-      const res = await model.generateContent(prompt); setAiInsight(res.response.text());
-    } catch (e) { setAiInsight('AI Unavailable') } finally { setAiLoading(false) }
+      const result = await model.generateContent(prompt)
+      const parsed = JSON.parse(result.response.text().match(/\{[\s\S]*\}/)[0])
+      setFormData({
+        type: parsed.type || 'expense',
+        category: parsed.category || '',
+        amount: parsed.amount || '',
+        description: parsed.description || '',
+        donorName: parsed.donorName || ''
+      })
+      if(parsed.date) setSelectedDate(new Date(parsed.date))
+      setMagicFillText('')
+    } catch (error) { alert('Failed to parse text.') }
+    setMagicFillLoading(false)
   }
 
-  if (loading) return <div className="flex h-screen items-center justify-center text-deep-gold animate-pulse">Loading...</div>
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const transactionData = {
+      ...formData,
+      amount: parseFloat(formData.amount),
+      date: selectedDate // Save the actual Date object
+    }
+    try {
+      if (editingTransaction) await updateDoc(doc(db, 'transactions', editingTransaction.id), transactionData)
+      else await addDoc(collection(db, 'transactions'), transactionData)
+      setShowModal(false); setEditingTransaction(null)
+      setFormData({ type: 'income', category: '', amount: '', description: '', donorName: '' })
+      loadTransactions()
+    } catch (error) { alert('Error saving transaction') }
+  }
+
+  const handleEdit = (tx) => {
+    setEditingTransaction(tx)
+    setFormData({
+      type: tx.type, category: tx.category, amount: tx.amount,
+      description: tx.description, donorName: tx.donorName
+    })
+    setSelectedDate(tx.date.toDate()) // Convert Firebase Timestamp to JS Date
+    setShowModal(true)
+  }
+
+  const handleDelete = async (id) => {
+    if (window.confirm(t('deleteTransaction') + '?')) {
+      await deleteDoc(doc(db, 'transactions', id)); loadTransactions();
+    }
+  }
+
+  const categories = formData.type === 'income' ? Object.values(t('transactionCategories.income')) : Object.values(t('transactionCategories.expense'))
+
+  if (loading) return <div className="text-center py-12">{t('loading')}</div>
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 no-print">
-        <div>
-          <h1 className="text-4xl font-serif font-bold text-dark-brown mb-2">{t('dashboard')}</h1>
-          <p className="text-stone-500">Financial overview for {format(new Date(startDate), 'MMM d')} - {format(new Date(endDate), 'MMM d, yyyy')}</p>
-        </div>
-        <div className="flex gap-3">
-          <button className="btn-secondary" onClick={() => window.print()}>
-            <span className="flex items-center gap-2"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>Print</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Date Filter */}
-      <div className="card flex flex-wrap gap-4 items-end no-print">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('startDate')}</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-field" />
-        </div>
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('endDate')}</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="input-field" />
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title={t('income')} value={`${stats.income.toFixed(2)} €`} color="text-emerald-600" 
-          icon={<svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" /></svg>} />
-        <StatCard title={t('expenses')} value={`${stats.expenses.toFixed(2)} €`} color="text-red-600" 
-          icon={<svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 13l-5 5m0 0l-5-5m5 5V6" /></svg>} />
-        <StatCard title={t('netBalance')} value={`${stats.net.toFixed(2)} €`} color={stats.net >= 0 ? "text-emerald-600" : "text-red-600"} 
-          icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-        <StatCard title={t('totalStockValue')} value={`${stats.stock.toFixed(2)} €`} color="text-amber-600" 
-          icon={<svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>} />
-      </div>
-
-      {/* AI Section */}
-      <div className="bg-gradient-to-br from-amber-50 to-white rounded-2xl p-8 border border-amber-100 shadow-soft relative overflow-hidden no-print">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-200/20 rounded-full -mr-16 -mt-16 blur-2xl"></div>
-        <h2 className="text-xl font-serif font-bold text-deep-gold mb-4 flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          {t('aiFinancialAdvisor')}
-        </h2>
-        <p className="text-stone-600 leading-relaxed max-w-4xl">{aiLoading ? t('loading') : (aiInsight || "Click generate to get insights")}</p>
-        <button onClick={getAiInsight} disabled={aiLoading} className="mt-6 btn-primary text-sm px-4 py-2">
-          {aiLoading ? 'Thinking...' : 'Generate Insight'}
+    <div>
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-3xl font-serif text-deep-gold">{t('transactions')}</h1>
+        <button onClick={() => { setEditingTransaction(null); setFormData({ type: 'income', category: '', amount: '', description: '', donorName: '' }); setSelectedDate(new Date()); setShowModal(true); }} className="btn-primary flex items-center gap-2">
+          <span>+</span> {t('addTransaction')}
         </button>
       </div>
 
-      {/* Table */}
       <div className="card overflow-hidden !p-0">
-        <div className="p-6 border-b border-stone-100 bg-stone-50/50">
-          <h2 className="text-lg font-serif font-bold text-dark-brown">{t('ledger')}</h2>
-        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-stone-50 text-stone-500 font-semibold text-xs uppercase tracking-wider">
@@ -127,28 +116,105 @@ const Dashboard = () => {
                 <th className="px-6 py-4 text-left">{t('category')}</th>
                 <th className="px-6 py-4 text-left">{t('amount')}</th>
                 <th className="px-6 py-4 text-left">{t('description')}</th>
+                <th className="px-6 py-4 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {transactions.map((t) => (
-                <tr key={t.id} className="hover:bg-amber-50/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-600">{format(t.date?.toDate() || new Date(), 'MMM d, yyyy')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${t.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                      {t.type}
-                    </span>
+              {transactions.map((tx) => (
+                <tr key={tx.id} className="hover:bg-amber-50/50 transition-colors">
+                  <td className="px-6 py-4 text-sm text-stone-600">{format(tx.date?.toDate() || new Date(), 'MMM d, yyyy')}</td>
+                  <td className="px-6 py-4"><span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${tx.type === 'income' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>{tx.type}</span></td>
+                  <td className="px-6 py-4 text-sm text-stone-900">{tx.category}</td>
+                  <td className={`px-6 py-4 text-sm font-bold ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{tx.amount?.toFixed(2)} €</td>
+                  <td className="px-6 py-4 text-sm text-stone-500 max-w-xs truncate">{tx.description || '-'}</td>
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => handleEdit(tx)} className="text-deep-gold hover:text-amber-700 mr-3 font-medium">{t('edit')}</button>
+                    <button onClick={() => handleDelete(tx.id)} className="text-red-600 hover:text-red-800 font-medium">{t('delete')}</button>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-stone-900 font-medium">{t.category}</td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${t.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{t.amount?.toFixed(2)} €</td>
-                  <td className="px-6 py-4 text-sm text-stone-500 max-w-xs truncate">{t.description || '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full transform transition-all scale-100">
+            <h2 className="text-2xl font-serif text-deep-gold mb-6 font-bold">{editingTransaction ? t('editTransaction') : t('addTransaction')}</h2>
+            
+            {/* Magic Fill Area */}
+            {!editingTransaction && (
+              <div className="mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                <label className="block text-xs font-bold text-indigo-400 uppercase mb-2">{t('magicFill')}</label>
+                <div className="flex gap-2">
+                  <input value={magicFillText} onChange={e => setMagicFillText(e.target.value)} placeholder="e.g., Paid 50 euros for candles" className="input-field !py-2 !text-sm" />
+                  <button onClick={handleMagicFill} disabled={magicFillLoading || !magicFillText} className="bg-indigo-600 text-white px-4 rounded-xl hover:bg-indigo-700 disabled:opacity-50">
+                    <svg className={`w-5 h-5 ${magicFillLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('transactionType')}</label>
+                  <select name="type" value={formData.type} onChange={handleChange} className="input-field">
+                    <option value="income">{t('income')}</option>
+                    <option value="expense">{t('expense')}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('amount')}</label>
+                  <input type="number" name="amount" value={formData.amount} onChange={handleChange} required step="0.01" className="input-field" placeholder="0.00" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('category')}</label>
+                <select name="category" value={formData.category} onChange={handleChange} required className="input-field">
+                  <option value="">Select Category...</option>
+                  {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('date')}</label>
+                {/* CUSTOM DATE PICKER */}
+                <div className="relative">
+                  <DatePicker 
+                    selected={selectedDate} 
+                    onChange={(date) => setSelectedDate(date)} 
+                    className="input-field w-full cursor-pointer"
+                    dateFormat="MMMM d, yyyy"
+                  />
+                  <div className="absolute right-4 top-3.5 text-deep-gold pointer-events-none">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('description')}</label>
+                <textarea name="description" value={formData.description} onChange={handleChange} className="input-field min-h-[80px]" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('donorName')}</label>
+                <input type="text" name="donorName" value={formData.donorName} onChange={handleChange} className="input-field" />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">{t('cancel')}</button>
+                <button type="submit" className="btn-primary flex-1">{t('save')}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-export default Dashboard
+export default Transactions
