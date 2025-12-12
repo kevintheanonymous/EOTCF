@@ -1,38 +1,461 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EOTC Toulouse - Finance & Inventory Management</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+Ethiopic:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EOTC Toulouse Finance Management</title>
+    
+    <!-- 1. STYLING & FONTS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Serif+Ethiopic:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'deep-gold': '#B45309',
-              'liturgical-red': '#B91C1C',
-              'emerald-green': '#15803D',
-              'warm-parchment': '#FAFAF9',
-              'dark-brown': '#292524',
-            },
-            fontFamily: {
-              'sans': ['Inter', 'sans-serif'],
-              'serif': ['Playfair Display', 'Noto Serif Ethiopic', 'serif'],
-              'amharic': ['Noto Serif Ethiopic', 'serif'],
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Playfair Display', 'serif'], ethiopic: ['Noto Serif Ethiopic', 'serif'] },
+                    colors: { eotc: { gold: '#B45309', goldLight: '#F59E0B', bg: '#FAFAF9', surface: '#FFFFFF', text: '#292524', green: '#15803D', red: '#B91C1C', accent: '#78350F' } },
+                    boxShadow: { 'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.05)', 'card': '0 10px 15px -3px rgba(0, 0, 0, 0.05)' }
+                }
             }
-          }
         }
-      }
     </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FAFAF9; color: #292524; }
+        .amharic-text { font-family: 'Noto Serif Ethiopic', serif; }
+        @media print {
+            .no-print, aside, button, .sidebar, .mobile-nav { display: none !important; }
+            .print-only { display: block !important; }
+            main { margin: 0 !important; width: 100% !important; padding: 0 !important; }
+            .card { border: 1px solid #ddd; box-shadow: none !important; }
+        }
+        .print-only { display: none; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        
+        /* Toast Animation */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-full"></div>
 
+    <!-- 2. LIBRARIES -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/prop-types@15.7.2/prop-types.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js"></script>
+
+    <!-- 3. APP LOGIC -->
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, Timestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+        
+        const { useState, useEffect, useMemo, useCallback, createContext, useContext } = React;
+        const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+        // --- ICONS (Inline SVG) ---
+        const Icon = ({ d, className = "" }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{d}</svg>;
+        const Icons = {
+            AlertTriangle: (p) => <Icon {...p} d={<><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></>} />,
+            DollarSign: (p) => <Icon {...p} d={<><line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>} />,
+            TrendingUp: (p) => <Icon {...p} d={<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>} />,
+            TrendingDown: (p) => <Icon {...p} d={<><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></>} />,
+            Users: (p) => <Icon {...p} d={<><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />,
+            FileText: (p) => <Icon {...p} d={<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></>} />,
+            LogOut: (p) => <Icon {...p} d={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></>} />,
+            Loader2: (p) => <Icon {...p} className={`${p.className} animate-spin`} d={<path d="M21 12a9 9 0 1 1-6.219-8.56"/>} />,
+            Sparkles: (p) => <Icon {...p} d={<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/>} />,
+            Bot: (p) => <Icon {...p} d={<><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></>} />,
+            Lock: (p) => <Icon {...p} d={<><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
+            Mail: (p) => <Icon {...p} d={<><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>} />,
+            ShieldCheck: (p) => <Icon {...p} d={<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></>} />,
+            ShoppingBag: (p) => <Icon {...p} d={<><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></>} />,
+            Plus: (p) => <Icon {...p} d={<><path d="M5 12h14"/><path d="M12 5v14"/></>} />,
+            Minus: (p) => <Icon {...p} d={<path d="M5 12h14"/>} />,
+            Image: (p) => <Icon {...p} d={<><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></>} />,
+            Pencil: (p) => <Icon {...p} d={<><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>} />,
+            Download: (p) => <Icon {...p} d={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></>} />,
+            Printer: (p) => <Icon {...p} d={<><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></>} />,
+            Cross: (p) => <Icon {...p} d={<path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2c0 1.1.9 2 2 2h5v5c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/>} />,
+            Check: (p) => <Icon {...p} d={<polyline points="20 6 9 17 4 12"/>} />,
+            X: (p) => <Icon {...p} d={<><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>} />,
+            Bell: (p) => <Icon {...p} d={<><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></>} />,
+            Phone: (p) => <Icon {...p} d={<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>} />,
+            Wand2: (p) => <Icon {...p} d={<><path d="m19 2 2 2-2 2-2-2 2-2Z"/><path d="m5 6 3 3-3 3-3-3 3-3Z"/><path d="m6 21 3-3-3-3-3 3 3 3Z"/><path d="m21 22-5-5 2.5-2.5"/><path d="M11 2 2 11"/></>} />,
+            Menu: (p) => <Icon {...p} d={<><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></>} />
+        };
+
+        // --- GLOBAL VARIABLES (REPLACE WITH YOURS) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'eotc-toulouse-prod';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "REPLACE_WITH_YOUR_ACTUAL_API_KEY",
+            authDomain: "REPLACE_WITH_YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+            storageBucket: "REPLACE_WITH_YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
+            appId: "REPLACE_WITH_YOUR_APP_ID"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const apiKey = ""; // Gemini API Key
+
+        // --- FIREBASE INIT ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        setLogLevel('error'); // Quiet logs for production
+
+        // --- TOAST CONTEXT ---
+        const ToastContext = createContext();
+        const ToastProvider = ({ children }) => {
+            const [toasts, setToasts] = useState([]);
+            const addToast = (msg, type = 'success') => {
+                const id = Date.now();
+                setToasts(prev => [...prev, { id, msg, type }]);
+                setTimeout(() => removeToast(id), 3000);
+            };
+            const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+            return (
+                <ToastContext.Provider value={{ addToast }}>
+                    {children}
+                    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+                        {toasts.map(t => (
+                            <div key={t.id} className={`toast-enter p-4 rounded-lg shadow-lg text-white text-sm font-medium ${t.type === 'error' ? 'bg-eotc-red' : 'bg-eotc-green'} flex items-center gap-2`}>
+                                {t.type === 'error' ? <Icons.AlertTriangle className="w-4 h-4"/> : <Icons.Check className="w-4 h-4"/>}
+                                {t.msg}
+                            </div>
+                        ))}
+                    </div>
+                </ToastContext.Provider>
+            );
+        };
+        const useToast = () => useContext(ToastContext);
+
+        // --- GEMINI HELPER ---
+        const callGeminiAPI = async (prompt) => {
+            if (!apiKey) return "API Key missing.";
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            try {
+                const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+            } catch (error) { console.error("AI Error:", error); return null; }
+        };
+
+        // --- LANGUAGES ---
+        const LANGUAGES = { en: 'English', fr: 'Français', am: 'አማርኛ' };
+        const i18n = {
+          en: {
+            title: "EOTC Toulouse Finance", dashboard: "Dashboard", transactions: "Transactions", inventory: "Inventory", users: "Users", logout: "Log Out", language: "Language", income: "Income", expenses: "Expenses", net: "Net Balance", totalStockValue: "Stock Value", addTransaction: "Add Transaction", editTransaction: "Edit", addItem: "Add Item", type: "Type", category: "Category", amount: "Amount", date: "Date", description: "Description", donorName: "Donor", name: "Name", price: "Price", qty: "Qty", imageUrl: "Image URL", save: "Save", welcomeAdmin: (n) => `Welcome, ${n}`, loading: "Loading...", email: "Email", password: "Password", role: "Role", editRole: "Edit Role", approve: "Approve", deny: "Deny", cancel: "Cancel", aiInsightTitle: "AI Advisor", generateInsight: "Generate Report", generating: "Thinking...", magicFill: "Magic Fill", pasteReceipt: "Paste text...", loginTitle: "Sign In", signupTitle: "Register", switchLogin: "Have account? Sign In", switchSignup: "No account?", submit: "Submit", outOfStock: "Out of Stock", inStock: "In Stock", startDate: "Start Date", endDate: "End Date", exportCSV: "Export Excel", printReport: "Print / PDF", noData: "No data found.",
+            donationCategories: ["Tithe", "Candle Sales", "Building Fund", "Other Income"],
+            expenseCategories: ["Rent", "Utilities", "Supplies", "Salaries", "Maintenance", "Events"],
+            inventoryTypes: ["Religious Items", "Books", "Clothing", "Food/Drink", "Other"],
+            requests: "Access Requests", activeUsers: "Active Users", pendingMessage: "Your account is pending verification by the administrator.", pendingTitle: "Verification Pending", firstName: "First Name", lastName: "Last Name", phone: "Phone", confirmPass: "Confirm Password", passMismatch: "Passwords do not match", passShort: "Password too short (min 6)", fieldRequired: "All fields required"
+          },
+          fr: {
+            title: "EOTC Toulouse Finances", dashboard: "Tableau de Bord", transactions: "Transactions", inventory: "Inventaire", users: "Membres", logout: "Déconnexion", language: "Langue", income: "Recettes", expenses: "Dépenses", net: "Solde", totalStockValue: "Valeur Stock", addTransaction: "Ajouter", editTransaction: "Modifier", addItem: "Ajouter Article", type: "Type", category: "Catégorie", amount: "Montant", date: "Date", description: "Description", donorName: "Donateur", name: "Nom", price: "Prix", qty: "Qté", imageUrl: "URL Image", save: "Enregistrer", welcomeAdmin: (n) => `Bienvenue, ${n}`, loading: "Chargement...", email: "Email", password: "Mot de passe", role: "Rôle", editRole: "Modifier", approve: "Approuver", deny: "Refuser", cancel: "Annuler", aiInsightTitle: "Conseiller IA", generateInsight: "Générer", generating: "Analyse...", magicFill: "Remplissage Magique", pasteReceipt: "Coller texte...", loginTitle: "Connexion", signupTitle: "Inscription", switchLogin: "Déjà membre ?", switchSignup: "Nouveau ?", submit: "Valider", outOfStock: "Épuisé", inStock: "En Stock", startDate: "Début", endDate: "Fin", exportCSV: "Exporter Excel", printReport: "Imprimer / PDF", noData: "Aucune donnée.",
+            donationCategories: ["Dîme", "Bougies", "Fonds Constr.", "Autres"],
+            expenseCategories: ["Loyer", "Charges", "Fournitures", "Salaires", "Entretien", "Événements"],
+            inventoryTypes: ["Objets Religieux", "Livres", "Vêtements", "Nourriture/Boisson", "Autre"],
+            requests: "Demandes d'accès", activeUsers: "Utilisateurs Actifs", pendingMessage: "Votre compte est en attente de vérification.", pendingTitle: "En Attente", firstName: "Prénom", lastName: "Nom", phone: "Téléphone", confirmPass: "Confirmer Mot de passe", passMismatch: "Mots de passe différents", passShort: "Trop court (min 6)", fieldRequired: "Champs requis"
+          },
+          am: {
+            title: "የቱሉዝ ኢኦተች ፋይናንስ", dashboard: "ዳሽቦርድ", transactions: "ግብይቶች", inventory: "ንብረት", users: "አባላት", logout: "ውጣ", language: "ቋንቋ", income: "ገቢ", expenses: "ወጪ", net: "ቀሪ ሂሳብ", totalStockValue: "የንብረት ዋጋ", addTransaction: "ግብይት ጨምር", editTransaction: "አርትዕ", addItem: "እቃ ጨምር", type: "ዓይነት", category: "ምድብ", amount: "መጠን", date: "ቀን", description: "መግለጫ", donorName: "ለጋሽ", name: "ስም", price: "ዋጋ", qty: "ብዛት", imageUrl: "ምስል", save: "አስቀምጥ", welcomeAdmin: (n) => `እንኳን ደህና መጣህ፣ ${n}`, loading: "በመጫን ላይ...", email: "ኢሜይል", password: "የይለፍ ቃል", role: "ሚና", editRole: "ሚና ቀይር", approve: "አጽድቅ", deny: "ከልክል", cancel: "ሰርዝ", aiInsightTitle: "ኤአይ አማካሪ", generateInsight: "ሪፖርት", generating: "በመተንተን ላይ...", magicFill: "አስማት ሙላ", pasteReceipt: "ጽሑፍ ለጥፍ...", loginTitle: "ግባ", signupTitle: "ተመዝገብ", switchLogin: "መለያ አለህ?", switchSignup: "መለያ የለህም?", submit: "አስገባ", outOfStock: "የለም", inStock: "አለ", startDate: "መጀመሪያ", endDate: "መጨረሻ", exportCSV: "Excel ላክ", printReport: "አትም / PDF", noData: "መረጃ የለም",
+            donationCategories: ["አሥራት", "ሻማ", "ሕንፃ", "ሌላ"],
+            expenseCategories: ["ኪራይ", "መብራት/ውሃ", "እቃዎች", "ደሞዝ", "ጥገና", "ክስተት"],
+            inventoryTypes: ["ሃይማኖታዊ", "መጻሕፍት", "ልብስ", "ምግብ/መጠጥ", "ሌላ"],
+            requests: "የመዳረሻ ጥያቄዎች",
+            activeUsers: "ንቁ ተጠቃሚዎች",
+            pendingMessage: "መለያዎ እስኪጸድቅ ይጠብቁ።", pendingTitle: "በመጠባበቅ ላይ", firstName: "ስም", lastName: "የአባት ስም", phone: "ስልክ", confirmPass: "የይለፍ ቃል አረጋግጥ", passMismatch: "አይመሳሰሉም", passShort: "አጭር ነው", fieldRequired: "ያስፈልጋል"
+          }
+        };
+        const useI18n = (l) => i18n[l] || i18n.en;
+
+        const getUserPath = (uid) => `artifacts/${appId}/users/${uid}/users/${uid}`;
+        const getTxPath = () => `artifacts/${appId}/public/data/transactions`;
+        const getInvPath = () => `artifacts/${appId}/public/data/inventory`;
+
+        const Card = ({ title, value, icon: IconName, color = "text-eotc-text" }) => {
+            const Icon = Icons[IconName] || Icons.HelpCircle;
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-card border border-gray-100 flex items-center justify-between transition-all hover:shadow-lg animate-fade-in">
+                    <div><p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{title}</p><p className={`text-2xl font-serif font-bold ${color}`}>{typeof value === 'number' ? `€${value.toLocaleString('fr-FR', {minimumFractionDigits: 2})}` : value}</p></div>
+                    <div className="p-3 bg-eotc-bg rounded-full text-eotc-gold shadow-sm"><Icon className="w-6 h-6" /></div>
+                </div>
+            );
+        };
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+          if (!isOpen) return null;
+          return (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto border-t-8 border-eotc-gold animate-fade-in transform transition-all scale-100">
+                <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+                  <h2 className="text-2xl font-serif font-bold text-eotc-text">{title}</h2>
+                  <button onClick={onClose} className="text-gray-400 hover:text-eotc-red transition-colors"><Icons.X className="w-6 h-6"/></button>
+                </div>
+                {children}
+              </div>
+            </div>
+          );
+        };
+
+        // --- AUTH & PAGES ---
+        const AuthPage = ({ t }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', email: '', password: '', confirmPassword: '' });
+            const [loading, setLoading] = useState(false);
+            const { addToast } = useToast();
+
+            const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+            const handleSubmit = async (e) => {
+                e.preventDefault(); setLoading(true);
+                try {
+                    if (isLogin) await signInWithEmailAndPassword(auth, formData.email, formData.password);
+                    else {
+                        if (!formData.firstName || !formData.lastName || !formData.phone) throw new Error(t.fieldRequired);
+                        if (formData.password !== formData.confirmPassword) throw new Error(t.passMismatch);
+                        if (formData.password.length < 6) throw new Error(t.passShort);
+                        const cred = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+                        const userMeta = { uid: cred.user.uid, name: `${formData.firstName} ${formData.lastName}`, email: formData.email, phone: formData.phone, role: 'Pending', createdAt: Timestamp.now() };
+                        await setDoc(doc(db, `artifacts/${appId}/public/data/users`, cred.user.uid), userMeta);
+                        await setDoc(doc(db, getUserPath(cred.user.uid)), userMeta);
+                    }
+                } catch (err) { addToast(err.message.replace('Firebase:', ''), 'error'); } 
+                finally { setLoading(false); }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-eotc-bg p-4 font-sans relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+                    <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden relative z-10 border border-gray-100 animate-fade-in">
+                        <div className="bg-eotc-gold p-8 text-center text-white">
+                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md border-2 border-white/30"><Icons.ShieldCheck className="w-8 h-8 text-white" /></div>
+                            <h1 className="text-3xl font-serif font-bold">{t.title}</h1>
+                            <p className="mt-2 text-yellow-100 opacity-90">{isLogin ? t.loginTitle : t.signupTitle}</p>
+                        </div>
+                        <div className="p-8">
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {!isLogin && <><div className="grid grid-cols-2 gap-4"><input name="firstName" className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" placeholder={t.firstName} onChange={handleChange} required /><input name="lastName" className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" placeholder={t.lastName} onChange={handleChange} required /></div><div className="relative"><Icons.Phone className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" /><input name="phone" className="w-full p-3 pl-10 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" type="tel" placeholder={t.phone} onChange={handleChange} required /></div></>}
+                                <div className="relative"><Icons.Mail className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" /><input name="email" className="w-full p-3 pl-10 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" type="email" placeholder={t.email} onChange={handleChange} required /></div>
+                                <div className="relative"><Icons.Lock className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" /><input name="password" className="w-full p-3 pl-10 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" type="password" placeholder={t.password} onChange={handleChange} required /></div>
+                                {!isLogin && <div className="relative"><Icons.Lock className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" /><input name="confirmPassword" className="w-full p-3 pl-10 border border-gray-200 rounded-lg focus:ring-2 focus:ring-eotc-gold outline-none" type="password" placeholder={t.confirmPass} onChange={handleChange} required /></div>}
+                                <button disabled={loading} className="w-full bg-eotc-gold text-white p-3 rounded-lg font-bold hover:bg-yellow-700 transition shadow-lg disabled:opacity-50 flex justify-center items-center">{loading ? <Icons.Loader2 className="w-5 h-5 animate-spin" /> : t.submit}</button>
+                            </form>
+                            <div className="text-center mt-6"><button onClick={()=>setIsLogin(!isLogin)} className="text-sm text-eotc-gold hover:text-yellow-700 font-bold underline">{isLogin ? t.switchSignup : t.switchLogin}</button></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PendingPage = ({ t, onLogout }) => (
+            <div className="min-h-screen flex items-center justify-center bg-eotc-bg p-4 animate-fade-in">
+                <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center border-t-8 border-yellow-500">
+                    <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-6 text-yellow-600"><Icons.ShieldCheck className="w-10 h-10"/></div>
+                    <h2 className="text-3xl font-serif font-bold text-eotc-text mb-3">{t.pendingTitle}</h2>
+                    <p className="text-gray-600 mb-8 leading-relaxed">{t.pendingMessage}</p>
+                    <button onClick={onLogout} className="px-6 py-2 bg-eotc-gold text-white rounded-lg font-bold hover:bg-yellow-700 transition shadow">{t.logout}</button>
+                </div>
+            </div>
+        );
+
+        function App() {
+            const [user, setUser] = useState(null);
+            const [role, setRole] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [lang, setLang] = useState('en');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            const t = useI18n(lang);
+            const [page, setPage] = useState('dashboard');
+
+            useEffect(() => {
+                if(initialAuthToken) signInWithCustomToken(auth, initialAuthToken).catch(()=>setLoading(false)); else setLoading(false);
+                return onAuthStateChanged(auth, async u => {
+                    if(u) {
+                        setUser(u); setLoading(true);
+                        const ref = doc(db, `artifacts/${appId}/public/data/users`, u.uid);
+                        let snap = await getDoc(ref);
+                        if(!snap.exists()) {
+                            if(u.email === 'eotctoulouse@gmail.com') {
+                                await setDoc(ref, { uid: u.uid, email: u.email, name: 'Admin', role: 'Admin', createdAt: Timestamp.now() });
+                                setRole('Admin');
+                            } else setRole('Pending');
+                        } else setRole(snap.data().role);
+                        setLoading(false);
+                    } else { setUser(null); setRole(null); setLoading(false); }
+                });
+            }, []);
+
+            const handleLogout = async () => { await signOut(auth); setUser(null); setRole(null); setPage('dashboard'); };
+            if (loading) return <div className="flex h-screen items-center justify-center text-eotc-gold bg-eotc-bg"><Icons.Loader2 className="w-10 h-10 animate-spin"/></div>;
+            if (!user) return <ToastProvider><AuthPage t={t} /></ToastProvider>;
+            if (role === 'Pending') return <PendingPage t={t} onLogout={handleLogout} />;
+
+            return (
+                <ToastProvider>
+                    <div className="flex min-h-screen bg-eotc-bg text-gray-800 font-sans">
+                        {/* Mobile Header */}
+                        <div className="md:hidden fixed w-full bg-white z-30 shadow-sm p-4 flex justify-between items-center no-print">
+                            <span className="font-serif font-bold text-eotc-gold">{t.title}</span>
+                            <button onClick={()=>setSidebarOpen(!sidebarOpen)}><Icons.Menu className="w-6 h-6"/></button>
+                        </div>
+                        {/* Sidebar */}
+                        <aside className={`w-64 bg-white border-r border-gray-100 h-screen fixed left-0 top-0 flex flex-col z-40 shadow-xl transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 no-print`}>
+                            <div className="p-6 border-b border-gray-50 bg-eotc-bg flex items-center justify-between">
+                                <div className="flex items-center gap-3 text-eotc-gold"><Icons.ShieldCheck className="w-8 h-8" /><span className="font-serif font-bold text-lg leading-tight text-eotc-text">{t.title}</span></div>
+                                <button className="md:hidden" onClick={()=>setSidebarOpen(false)}><Icons.X className="w-5 h-5"/></button>
+                            </div>
+                            <nav className="flex-1 p-4 space-y-1">
+                                {[{id:'dashboard', icon:'FileText', label:t.dashboard}, {id:'transactions', icon:'DollarSign', label:t.transactions}, {id:'inventory', icon:'ShoppingBag', label:t.inventory}, {id:'users', icon:'Users', label:t.users, role:['Admin','Treasurer']}].map(i => (!i.role || i.role.includes(role)) && (
+                                    <button key={i.id} onClick={()=>{setPage(i.id); setSidebarOpen(false);}} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-medium ${page===i.id ? 'bg-eotc-gold text-white shadow-md' : 'text-gray-500 hover:bg-orange-50 hover:text-eotc-gold'}`}>{Icons[i.icon]({className:"w-5 h-5"})} {i.label}</button>
+                                ))}
+                            </nav>
+                            <div className="p-4 border-t border-gray-50 bg-gray-50/50">
+                                <select value={lang} onChange={e=>setLang(e.target.value)} className="w-full mb-3 p-2 bg-white border border-gray-200 rounded-lg text-sm">{Object.entries(LANGUAGES).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
+                                <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 text-red-500 hover:bg-red-50 p-2 rounded-lg transition text-sm font-bold"><Icons.LogOut className="w-4 h-4"/> {t.logout}</button>
+                            </div>
+                        </aside>
+                        {/* Overlay */}
+                        {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={()=>setSidebarOpen(false)}></div>}
+                        
+                        <main className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto h-screen animate-fade-in pt-20 md:pt-8">
+                            {page === 'dashboard' && <Dashboard user={user} t={t} />}
+                            {page === 'transactions' && <Transactions role={role} t={t} user={user} />}
+                            {page === 'inventory' && <Inventory role={role} t={t} user={user} />}
+                            {page === 'users' && <UserList role={role} t={t} />}
+                        </main>
+                    </div>
+                </ToastProvider>
+            );
+        }
+
+        const Dashboard = ({ user, t }) => {
+            const [start, setStart] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
+            const [end, setEnd] = useState(new Date().toISOString().split('T')[0]);
+            const [txs, setTxs] = useState([]);
+            const [inv, setInv] = useState([]);
+            const [insight, setInsight] = useState('');
+            const [thinking, setThinking] = useState(false);
+            const { addToast } = useToast();
+
+            useEffect(() => {
+                const uT = onSnapshot(query(collection(db, getTxPath())), s => setTxs(s.docs.map(d=>({...d.data(), id:d.id}))));
+                const uI = onSnapshot(query(collection(db, getInvPath())), s => setInv(s.docs.map(d=>({...d.data(), id:d.id}))));
+                return () => { uT(); uI(); };
+            }, []);
+            
+            const filtered = useMemo(() => txs.filter(x => { const d = x.date?.toDate().toISOString().split('T')[0]; return d >= start && d <= end; }), [txs, start, end]);
+            const stats = useMemo(() => ({ inc: filtered.filter(x => x.type === 'Income').reduce((a,b)=>a+b.amount,0), exp: filtered.filter(x => x.type === 'Expense').reduce((a,b)=>a+b.amount,0), stock: inv.reduce((a,b)=>a+(b.price*b.quantity),0) }), [filtered, inv]);
+
+            const exportCSV = () => {
+                const header = "Date,Type,Category,Amount,Description\n";
+                const rows = filtered.map(r => `${r.date?.toDate().toLocaleDateString()},${r.type},${r.category},${r.amount},"${r.description||''}"`).join("\n");
+                const blob = new Blob(["\uFEFF" + header + rows], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `EOTC_Report.csv`; a.click();
+                addToast('Report Downloaded');
+            };
+
+            const generateAI = async () => {
+                setThinking(true);
+                const txt = await callGeminiAPI(`Analyze: Income ${stats.inc}, Expense ${stats.exp}, Net ${stats.inc-stats.exp}. Brief summary.`);
+                setInsight(txt); setThinking(false);
+            };
+
+            return (
+                <div className="space-y-8 max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row justify-between items-end gap-4 no-print">
+                        <div><h1 className="text-3xl font-serif font-bold text-eotc-text mb-1">{t.welcomeAdmin(user.name||'User')}</h1></div>
+                        <div className="flex gap-3"><button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 bg-eotc-green text-white rounded-lg shadow hover:bg-green-800 transition font-medium"><Icons.Download className="w-4 h-4"/> {t.exportCSV}</button><button onClick={()=>window.print()} className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg shadow hover:bg-black transition font-medium"><Icons.Printer className="w-4 h-4"/> {t.printReport}</button></div>
+                    </div>
+                    <div className="bg-white p-5 rounded-2xl shadow-soft border border-gray-100 flex flex-wrap gap-6 items-center no-print">
+                        <div className="flex items-center gap-3"><label className="text-xs font-bold text-gray-400 uppercase">{t.startDate}</label><input type="date" value={start} onChange={e=>setStart(e.target.value)} className="border border-gray-200 rounded-lg p-2 text-sm" /></div>
+                        <div className="hidden md:block w-px h-8 bg-gray-200"></div>
+                        <div className="flex items-center gap-3"><label className="text-xs font-bold text-gray-400 uppercase">{t.endDate}</label><input type="date" value={end} onChange={e=>setEnd(e.target.value)} className="border border-gray-200 rounded-lg p-2 text-sm" /></div>
+                    </div>
+                    <div className="print-only text-center mb-10 hidden"><h1 className="text-4xl font-serif font-bold mb-2">EOTC Toulouse</h1><p className="text-xl text-gray-600">Report: {start} — {end}</p></div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <Card title={t.income} value={stats.inc} icon="TrendingUp" color="text-eotc-green" />
+                        <Card title={t.expenses} value={stats.exp} icon="TrendingDown" color="text-eotc-red" />
+                        <Card title={t.net} value={stats.inc-stats.exp} icon="DollarSign" color={stats.inc-stats.exp>=0?'text-eotc-gold':'text-red-600'} />
+                        <Card title={t.totalStockValue} value={stats.stock} icon="ShoppingBag" color="text-gray-700" />
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100 shadow-soft no-print">
+                        <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3"><div className="p-2 bg-indigo-100 rounded-lg text-indigo-600"><Icons.Bot className="w-5 h-5"/></div><h3 className="font-bold text-indigo-900">{t.aiInsightTitle}</h3></div>
+                            <button onClick={generateAI} disabled={thinking} className="text-xs font-bold bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition disabled:opacity-50">{thinking ? t.generating : t.generateInsight}</button>
+                        </div>
+                        {insight && <div className="mt-4 text-sm text-indigo-800 leading-relaxed bg-white/50 p-4 rounded-xl border border-indigo-50">{insight}</div>}
+                    </div>
+                    {/* Transaction Table Preview */}
+                    <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
+                        <div className="p-6 border-b border-gray-50 bg-gray-50/30"><h3 className="font-serif font-bold text-lg text-gray-800">{t.transactionList}</h3></div>
+                        {filtered.length === 0 ? <div className="p-12 text-center text-gray-400">{t.noData}</div> : 
+                        <table className="w-full text-sm"><thead className="bg-gray-50 text-gray-500 font-bold uppercase tracking-wider text-xs"><tr><th className="p-4 text-left">{t.date}</th><th className="p-4 text-left">{t.type}</th><th className="p-4 text-left">{t.category}</th><th className="p-4 text-right">{t.amount}</th><th className="p-4 text-left">{t.description}</th></tr></thead>
+                        <tbody className="divide-y divide-gray-50">{filtered.map(x=><tr key={x.id}><td className="p-4 text-gray-600">{x.date?.toDate().toLocaleDateString()}</td><td className="p-4"><span className={`px-2 py-1 rounded text-xs font-bold ${x.type==='Income'?'bg-green-50 text-eotc-green':'bg-red-50 text-eotc-red'}`}>{x.type}</span></td><td className="p-4 text-gray-700 font-medium">{x.category}</td><td className="p-4 text-right font-mono text-gray-900">€{x.amount.toFixed(2)}</td><td className="p-4 text-gray-500 max-w-xs truncate">{x.description}</td></tr>)}</tbody></table>}
+                    </div>
+                </div>
+            );
+        };
+
+        const Transactions = ({ t, role, user }) => {
+            const [txs, setTxs] = useState([]); const [modal, setModal] = useState(false); const [editId, setEditId] = useState(null); const [form, setForm] = useState({ type: 'Income', category: '', amount: '', date: new Date().toISOString().split('T')[0], description: '', donorName: '' }); const [magic, setMagic] = useState(''); const [parsing, setParsing] = useState(false);
+            const { addToast } = useToast();
+            useEffect(() => onSnapshot(query(collection(db, getTxPath())), s => setTxs(s.docs.map(d=>({...d.data(), id:d.id})).sort((a,b)=>(b.date?.toDate()||0)-(a.date?.toDate()||0)))), []);
+            const handleMagic = async () => { setParsing(true); const res = await callGeminiAPI(`Extract JSON: "${magic}". Fields: type(Income/Expense), category(from [${t.donationCategories},${t.expenseCategories}]), date(YYYY-MM-DD), amount(number), description, donorName.`); try { setForm(prev=>({...prev, ...JSON.parse(res.replace(/```json|```/g,'').trim())})); setMagic(''); addToast('Parsed Successfully'); } catch(e){} setParsing(false); };
+            const save = async (e) => { e.preventDefault(); const pl = { ...form, amount: parseFloat(form.amount), date: Timestamp.fromDate(new Date(form.date)), recordedBy: user.uid, status: 'Approved' }; if(editId) await updateDoc(doc(db, getTxPath(), editId), pl); else await addDoc(collection(db, getTxPath()), pl); setModal(false); addToast('Transaction Saved'); };
+            const categories = (form.type === 'Income' ? t.donationCategories : t.expenseCategories) || [];
+            if(!['Admin','Treasurer'].includes(role)) return <div className="text-center p-10 text-gray-400">Access Restricted</div>;
+            return (
+                <div className="max-w-6xl mx-auto space-y-6">
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-serif font-bold text-eotc-text">{t.transactions}</h2><button onClick={()=>{setEditId(null); setForm({type:'Income',category:'',amount:'',date:new Date().toISOString().split('T')[0],description:'',donorName:''}); setModal(true);}} className="bg-eotc-gold text-white px-5 py-2 rounded-xl shadow-lg hover:bg-yellow-700 transition font-medium flex items-center gap-2"><Icons.Plus className="w-5 h-5"/> <span className="hidden md:inline">{t.addTransaction}</span></button></div>
+                    <div className="bg-white rounded-2xl shadow-card overflow-hidden border border-gray-100"><table className="w-full text-sm"><thead className="bg-gray-50 text-gray-500 font-bold uppercase text-xs"><tr><th className="p-4 text-left">{t.date}</th><th className="p-4 text-left">{t.type}</th><th className="p-4 text-left">{t.amount}</th><th className="p-4 text-left hidden md:table-cell">{t.category}</th><th className="p-4 text-right"></th></tr></thead><tbody className="divide-y divide-gray-50">{txs.map(x=><tr key={x.id} className="hover:bg-gray-50"><td className="p-4 text-gray-600">{x.date?.toDate().toLocaleDateString()}</td><td className={`p-4 font-bold ${x.type==='Income'?'text-eotc-green':'text-eotc-red'}`}>{x.type}</td><td className="p-4 font-mono">€{x.amount.toFixed(2)}</td><td className="p-4 hidden md:table-cell">{x.category}</td><td className="p-4 text-right"><button onClick={()=>{setForm({type:x.type,category:x.category,amount:x.amount,date:x.date?.toDate().toISOString().split('T')[0],description:x.description,donorName:x.donorName||''}); setEditId(x.id); setModal(true);}} className="text-gray-400 hover:text-eotc-gold"><Icons.Pencil className="w-4 h-4"/></button></td></tr>)}</tbody></table></div>
+                    <Modal isOpen={modal} onClose={()=>setModal(false)} title={editId ? t.editTransaction : t.addTransaction}>
+                        <form onSubmit={save} className="space-y-4">{!editId && <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-100"><div className="flex gap-2"><textarea value={magic} onChange={e=>setMagic(e.target.value)} placeholder={t.pasteReceipt} className="flex-1 text-xs p-2 rounded-lg border-0 focus:ring-0 bg-white h-10 resize-none"/><button type="button" onClick={handleMagic} disabled={!magic||parsing} className="text-indigo-600 p-2 hover:bg-indigo-100 rounded-lg"><Icons.Sparkles className="w-5 h-5"/></button></div></div>}<div className="grid grid-cols-2 gap-4"><select value={form.type} onChange={e=>setForm({...form,type:e.target.value})} className="border p-3 rounded-lg bg-gray-50"><option value="Income">Income</option><option value="Expense">Expense</option></select><input type="number" step="0.01" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} className="border p-3 rounded-lg" placeholder={t.amount} required /></div><select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} className="w-full border p-3 rounded-lg" required><option value="">Category</option>{categories.map(c=><option key={c} value={c}>{c}</option>)}</select><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} className="w-full border p-3 rounded-lg" required /><textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} className="w-full border p-3 rounded-lg" placeholder={t.description} rows="2"/><button className="w-full bg-eotc-gold text-white p-3 rounded-lg font-bold hover:bg-yellow-700">{t.save}</button></form>
+                    </Modal>
+                </div>
+            );
+        };
+
+        const Inventory = ({ t, role, user }) => {
+            const [inv, setInv] = useState([]); const [modal, setModal] = useState(false); const [form, setForm] = useState({ name:'', type:'Religious Items', price:'', quantity:'', description:'', imageUrl:'' });
+            const { addToast } = useToast();
+            useEffect(() => onSnapshot(query(collection(db, getInvPath())), s => setInv(s.docs.map(d=>({...d.data(), id:d.id})))), []);
+            const save = async (e) => { e.preventDefault(); await addDoc(collection(db, getInvPath()), {...form, price:parseFloat(form.price), quantity:parseInt(form.quantity), addedBy: user.uid}); setModal(false); setForm({name:'', type:'Religious Items', price:'', quantity:'', description:'', imageUrl:''}); addToast('Item Added'); };
+            const updateQty = async (id, q) => await updateDoc(doc(db, getInvPath(), id), { quantity: Math.max(0, q) });
+            return (
+                <div className="max-w-6xl mx-auto space-y-8">
+                    <div className="flex justify-between items-center"><h2 className="text-2xl font-serif font-bold text-eotc-text">{t.inventory}</h2>{['Admin','Treasurer'].includes(role)&&<button onClick={()=>setModal(true)} className="bg-eotc-gold text-white px-4 py-2 rounded shadow hover:bg-yellow-700 font-bold">{t.addItem}</button>}</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{inv.length === 0 ? <p className="col-span-3 text-center text-gray-400 p-10">{t.noData}</p> : inv.map(i => (<div key={i.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden group"><div className="h-40 bg-gray-100 flex items-center justify-center relative">{i.imageUrl ? <img src={i.imageUrl} className="w-full h-full object-cover" onError={e=>e.target.style.display='none'}/> : <Icons.Image className="text-gray-300 w-10 h-10"/>}<div className="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded text-xs font-bold shadow">€{i.price}</div></div><div className="p-4"><h4 className="font-bold text-gray-800">{i.name}</h4><p className="text-xs text-gray-500 uppercase mb-2">{i.type}</p><div className="flex justify-between items-center border-t border-gray-50 pt-2"><span className={`text-xs font-bold px-2 py-1 rounded ${i.quantity>0?'bg-green-100 text-eotc-green':'bg-red-100 text-eotc-red'}`}>{i.quantity>0?`${t.inStock}: ${i.quantity}`:t.outOfStock}</span>{['Admin','Treasurer'].includes(role)&&<div className="flex gap-1"><button onClick={()=>updateQty(i.id,i.quantity-1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Icons.Minus className="w-3 h-3"/></button><button onClick={()=>updateQty(i.id,i.quantity+1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Icons.Plus className="w-3 h-3"/></button></div>}</div></div></div>))}</div>
+                    <Modal isOpen={modal} onClose={()=>setModal(false)} title={t.addItem}><form onSubmit={save} className="space-y-4"><input placeholder={t.name} value={form.name} onChange={e=>setForm({...form,name:e.target.value})} className="border p-2 rounded w-full" required /><div className="grid grid-cols-2 gap-4"><input type="number" placeholder={t.price} value={form.price} onChange={e=>setForm({...form,price:e.target.value})} className="border p-2 rounded" required /><input type="number" placeholder={t.qty} value={form.quantity} onChange={e=>setForm({...form,quantity:e.target.value})} className="border p-2 rounded" required /></div><button className="w-full bg-eotc-gold text-white p-2 rounded font-bold">{t.save}</button></form></Modal>
+                </div>
+            );
+        };
+
+        const UserList = ({ t, role }) => {
+            const [users, setUsers] = useState([]);
+            const { addToast } = useToast();
+            useEffect(() => onSnapshot(query(collection(db, `artifacts/${appId}/public/data/users`)), s => setUsers(s.docs.map(d=>({...d.data(), id:d.id})))), []);
+            if(role!=='Admin') return <div className="text-center p-10 text-gray-400">Restricted</div>;
+            const updateRole = async (uid, r) => { await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, uid), { role: r }); addToast('Role Updated'); };
+            const deleteUser = async (uid) => { await deleteDoc(doc(db, `artifacts/${appId}/public/data/users`, uid)); addToast('User Removed'); };
+            const pending = users.filter(u=>u.role==='Pending'); const active = users.filter(u=>u.role!=='Pending');
+            return (
+                <div className="max-w-5xl mx-auto space-y-8">
+                    {pending.length>0 && <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 shadow-sm"><h2 className="text-xl font-bold text-eotc-gold mb-4 flex items-center gap-2"><Icons.Bell className="w-5 h-5"/> {t.requests}</h2><div className="space-y-3">{pending.map(u=><div key={u.uid} className="flex justify-between items-center bg-white p-4 rounded shadow-sm"><div><p className="font-bold">{u.name}</p><p className="text-sm text-gray-500">{u.email}</p></div><div className="flex gap-2"><button onClick={()=>updateRole(u.id,'Member')} className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm font-bold flex items-center gap-1"><Icons.Check className="w-4 h-4"/> {t.approve}</button><button onClick={()=>deleteUser(u.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-bold flex items-center gap-1"><Icons.X className="w-4 h-4"/> {t.deny}</button></div></div>)}</div></div>}
+                    <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden"><div className="p-6 border-b border-gray-50"><h2 className="text-xl font-bold text-gray-800">{t.activeUsers}</h2></div><table className="w-full text-sm"><thead className="bg-white text-gray-500 font-bold uppercase text-xs border-b border-gray-100"><tr><th className="p-4 text-left">{t.name}</th><th className="p-4 text-left">{t.email}</th><th className="p-4 text-left">{t.role}</th><th className="p-4 text-right">Action</th></tr></thead><tbody className="divide-y divide-gray-50">{active.map(u=><tr key={u.id}><td className="p-4 font-medium">{u.name}</td><td className="p-4 text-gray-500">{u.email}</td><td className="p-4"><span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-bold border border-gray-200">{u.role}</span></td><td className="p-4 text-right"><select value={u.role} onChange={e=>updateRole(u.id,e.target.value)} className="border border-gray-200 bg-white p-1 rounded text-xs focus:ring-1 focus:ring-eotc-gold"><option value="Admin">Admin</option><option value="Treasurer">Treasurer</option><option value="Member">Member</option></select></td></tr>)}</tbody></table></div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
