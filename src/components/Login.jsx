@@ -18,15 +18,9 @@ const Login = () => {
     e.preventDefault()
     setError('')
     setLoading(true)
-
     const result = await login(email, password)
-    
     if (!result.success) {
-      if (result.error.includes('wrong-password') || result.error.includes('invalid-credential')) {
-        setError(t('incorrectPassword'))
-      } else {
-        setError(result.error)
-      }
+      setError(t('incorrectPassword') || 'Failed to login')
       setLoading(false)
     } else {
       navigate('/dashboard')
@@ -34,65 +28,76 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-warm-parchment px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-serif text-deep-gold mb-2">EOTC Toulouse</h1>
-          <p className="text-dark-brown">{t('login')}</p>
+    <div className="min-h-screen flex bg-warm-parchment">
+      {/* Left Side - Decorative */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gold-gradient relative overflow-hidden items-center justify-center">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="relative z-10 text-white text-center p-12">
+          <div className="mb-6 inline-block p-4 rounded-full bg-white/20 backdrop-blur-md">
+            <svg className="w-16 h-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-5xl font-serif font-bold mb-4">EOTC Toulouse</h1>
+          <p className="text-xl text-white/90 font-light">Finance & Inventory Management System</p>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-dark-brown mb-2">
-              {t('email')}
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-deep-gold"
-            />
+      {/* Right Side - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div className="max-w-md w-full">
+          <div className="text-center mb-10 lg:text-left">
+            <h2 className="text-3xl font-serif font-bold text-dark-brown mb-2">{t('login')}</h2>
+            <p className="text-stone-500">Welcome back! Please enter your details.</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-dark-brown mb-2">
-              {t('password')}
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-deep-gold"
-            />
-          </div>
-
-          {error && (
-            <div className="bg-liturgical-red/10 border border-liturgical-red text-liturgical-red px-4 py-3 rounded-lg">
-              {error}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">{t('email')}</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="input-field"
+                placeholder="name@example.com"
+              />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-deep-gold text-white py-3 rounded-lg font-semibold hover:bg-amber-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? t('loading') : t('loginButton')}
-          </button>
-        </form>
+            <div>
+              <label className="block text-sm font-medium text-stone-700 mb-2">{t('password')}</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="input-field"
+                placeholder="••••••••"
+              />
+            </div>
 
-        <p className="mt-6 text-center text-dark-brown">
-          {t('signup')}?{' '}
-          <Link to="/signup" className="text-deep-gold hover:underline">
-            {t('signup')}
-          </Link>
-        </p>
+            {error && (
+              <div className="p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
+              {loading ? t('loading') : t('loginButton')}
+            </button>
+          </form>
+
+          <p className="mt-8 text-center text-stone-500 text-sm">
+            {t('signup')}?{' '}
+            <Link to="/signup" className="text-deep-gold font-semibold hover:text-amber-700 hover:underline">
+              {t('signup')}
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
 }
 
 export default Login
-
