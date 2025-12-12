@@ -59,16 +59,35 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setCurrentUser(user)
-        await initializeAdmin(user)
         
+        // OPTIMIZATION: Fetch user data ONCE
         const userRef = doc(db, 'users', user.uid)
         const userSnap = await getDoc(userRef)
         
         if (userSnap.exists()) {
-          setUserRole(userSnap.data().role)
-        } else if (user.email !== 'eotctoulousefinance@gmail.com') {
-          // If profile doesn't exist and not admin, set as pending
-          setUserRole('pending')
+          let role = userSnap.data().role
+          
+          // Check if this is the Main Admin needing a role fix
+          if (user.email === 'eotctoulouse@gmail.com' && role !== 'admin') {
+             await setDoc(userRef, { role: 'admin' }, { merge: true })
+             role = 'admin'
+          }
+          setUserRole(role)
+        } else {
+          // Document doesn't exist yet
+          if (user.email === 'eotctoulouse@gmail.com') {
+            // Create Admin Profile immediately
+            await setDoc(userRef, {
+              email: user.email,
+              firstName: 'EOTC',
+              lastName: 'Finance Admin',
+              role: 'admin',
+              createdAt: new Date()
+            })
+            setUserRole('admin')
+          } else {
+            setUserRole('pending')
+          }
         }
       } else {
         setCurrentUser(null)
