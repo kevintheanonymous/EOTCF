@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useLanguage } from '../context/LanguageContext'
+import { useAuth } from '../context/AuthContext' // <--- 1. Import Auth
 import { getTranslation } from '../utils/translations'
 
 const Inventory = () => {
@@ -17,8 +18,13 @@ const Inventory = () => {
     imageUrl: '',
     description: ''
   })
+  
   const { language } = useLanguage()
+  const { userRole } = useAuth() // <--- 2. Get User Role
   const t = (key) => getTranslation(language, key)
+
+  // Define who can edit (Admin & Treasurer only)
+  const canEdit = ['admin', 'treasurer'].includes(userRole)
 
   useEffect(() => {
     loadItems()
@@ -113,23 +119,27 @@ const Inventory = () => {
     <div>
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-3xl font-serif text-deep-gold">{t('inventory')}</h1>
-        <button
-          onClick={() => {
-            setEditingItem(null)
-            setFormData({
-              name: '',
-              type: '',
-              price: '',
-              quantity: '',
-              imageUrl: '',
-              description: ''
-            })
-            setShowModal(true)
-          }}
-          className="px-6 py-2 bg-deep-gold text-white rounded-lg hover:bg-amber-700"
-        >
-          {t('addItem')}
-        </button>
+        
+        {/* Only show Add button if user has permission */}
+        {canEdit && (
+          <button
+            onClick={() => {
+              setEditingItem(null)
+              setFormData({
+                name: '',
+                type: '',
+                price: '',
+                quantity: '',
+                imageUrl: '',
+                description: ''
+              })
+              setShowModal(true)
+            }}
+            className="px-6 py-2 bg-deep-gold text-white rounded-lg hover:bg-amber-700"
+          >
+            {t('addItem')}
+          </button>
+        )}
       </div>
 
       {/* Inventory Grid */}
@@ -168,38 +178,46 @@ const Inventory = () => {
                 </p>
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-gray-600">{t('quantity')}: {item.quantity || 0}</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => updateQuantity(item.id, -1)}
-                      className="w-8 h-8 bg-liturgical-red text-white rounded hover:bg-red-700"
-                    >
-                      -
-                    </button>
-                    <button
-                      onClick={() => updateQuantity(item.id, 1)}
-                      className="w-8 h-8 bg-emerald-green text-white rounded hover:bg-green-700"
-                    >
-                      +
-                    </button>
-                  </div>
+                  
+                  {/* Only show Quantity controls if user has permission */}
+                  {canEdit && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateQuantity(item.id, -1)}
+                        className="w-8 h-8 bg-liturgical-red text-white rounded hover:bg-red-700"
+                      >
+                        -
+                      </button>
+                      <button
+                        onClick={() => updateQuantity(item.id, 1)}
+                        className="w-8 h-8 bg-emerald-green text-white rounded hover:bg-green-700"
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {item.description && (
                   <p className="text-sm text-gray-600 mb-4">{item.description}</p>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEdit(item)}
-                    className="flex-1 px-4 py-2 bg-deep-gold text-white rounded-lg hover:bg-amber-700"
-                  >
-                    {t('edit')}
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="flex-1 px-4 py-2 bg-liturgical-red text-white rounded-lg hover:bg-red-700"
-                  >
-                    {t('delete')}
-                  </button>
-                </div>
+                
+                {/* Only show Edit/Delete buttons if user has permission */}
+                {canEdit && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(item)}
+                      className="flex-1 px-4 py-2 bg-deep-gold text-white rounded-lg hover:bg-amber-700"
+                    >
+                      {t('edit')}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="flex-1 px-4 py-2 bg-liturgical-red text-white rounded-lg hover:bg-red-700"
+                    >
+                      {t('delete')}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))
@@ -318,4 +336,3 @@ const Inventory = () => {
 }
 
 export default Inventory
-
