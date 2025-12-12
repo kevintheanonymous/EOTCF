@@ -8,11 +8,7 @@ import {
 import { 
   doc, 
   getDoc, 
-  setDoc, 
-  collection, 
-  query, 
-  where, 
-  getDocs 
+  setDoc
 } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
 
@@ -33,22 +29,28 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize admin user if needed
   const initializeAdmin = async (user) => {
-    if (user.email === 'eotctoulouse@gmail.com') {
+    // Check for the specific admin email
+    if (user.email === 'eotctoulousefinance@gmail.com') {
       const userRef = doc(db, 'users', user.uid)
       const userSnap = await getDoc(userRef)
       
       if (!userSnap.exists()) {
+        // Create the admin profile if it doesn't exist
         await setDoc(userRef, {
           email: user.email,
           firstName: 'EOTC',
-          lastName: 'Toulouse',
+          lastName: 'Finance Admin',
           phoneNumber: '',
           role: 'admin',
           createdAt: new Date()
         })
         setUserRole('admin')
       } else {
-        setUserRole(userSnap.data().role)
+        // Ensure the role is admin if the email matches
+        if (userSnap.data().role !== 'admin') {
+            await setDoc(userRef, { role: 'admin' }, { merge: true })
+        }
+        setUserRole('admin')
       }
     }
   }
@@ -64,7 +66,8 @@ export const AuthProvider = ({ children }) => {
         
         if (userSnap.exists()) {
           setUserRole(userSnap.data().role)
-        } else {
+        } else if (user.email !== 'eotctoulousefinance@gmail.com') {
+          // If profile doesn't exist and not admin, set as pending
           setUserRole('pending')
         }
       } else {
@@ -82,13 +85,23 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       
-      // Create user document with 'pending' role
-      await setDoc(doc(db, 'users', user.uid), {
-        ...userData,
-        email,
-        role: 'pending',
-        createdAt: new Date()
-      })
+      // If signing up as the main admin, initialize as admin immediately
+      if (email === 'eotctoulousefinance@gmail.com') {
+         await setDoc(doc(db, 'users', user.uid), {
+            ...userData,
+            email,
+            role: 'admin',
+            createdAt: new Date()
+         })
+      } else {
+         // Create user document with 'pending' role for everyone else
+         await setDoc(doc(db, 'users', user.uid), {
+            ...userData,
+            email,
+            role: 'pending',
+            createdAt: new Date()
+         })
+      }
       
       return { success: true }
     } catch (error) {
@@ -129,4 +142,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   )
 }
-
