@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  sendPasswordResetEmail // <--- Import this
 } from 'firebase/auth'
 import { 
   doc, 
@@ -27,43 +28,25 @@ export const AuthProvider = ({ children }) => {
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // ⚠️ VERIFY: Is this EXACTLY the email you type when logging in?
   const ADMIN_EMAIL = 'eotctoulousefinance@gmail.com' 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth State Changed. User:", user ? user.email : "Logged Out");
-      
       if (user) {
         setCurrentUser(user)
-        
         try {
           const userRef = doc(db, 'users', user.uid)
-          console.log("Checking Database path:", userRef.path); // Should say "users/YOUR_UID"
-          
           const userSnap = await getDoc(userRef)
           
           if (userSnap.exists()) {
-            const data = userSnap.data();
-            console.log("❌ DATABASE SAYS ROLE IS:", data.role); // IF THIS SAYS 'pending', THAT IS THE ISSUE
-            
-            let role = data.role
-            
-            // Auto-fixer
+            let role = userSnap.data().role
             if (user.email === ADMIN_EMAIL && role !== 'admin') {
-               console.log("⚠️ Email matches Admin, but role is wrong. Attempting to fix...");
                await setDoc(userRef, { role: 'admin' }, { merge: true })
                role = 'admin'
-               console.log("✅ Role auto-corrected to admin");
             }
             setUserRole(role)
           } else {
-            console.log("❌ DOCUMENT DOES NOT EXIST in 'users' collection.");
-            
-            // Create profile if missing
             const role = (user.email === ADMIN_EMAIL) ? 'admin' : 'pending';
-            console.log("Creating new profile with role:", role);
-            
             await setDoc(userRef, {
               email: user.email,
               role: role,
@@ -72,8 +55,7 @@ export const AuthProvider = ({ children }) => {
             setUserRole(role)
           }
         } catch (err) {
-          console.error("🔥 CRITICAL DATABASE ERROR:", err.message);
-          console.error("Check your Firestore Security Rules!");
+          console.error("Database Error:", err.message);
         }
       } else {
         setCurrentUser(null)
@@ -115,7 +97,17 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const value = { currentUser, userRole, signup, login, logout, loading }
+  // --- NEW FUNCTION ---
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  const value = { currentUser, userRole, signup, login, logout, resetPassword, loading }
 
   return (
     <AuthContext.Provider value={value}>
