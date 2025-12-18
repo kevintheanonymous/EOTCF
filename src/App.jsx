@@ -10,7 +10,7 @@ import Dashboard from './components/Dashboard'
 import Transactions from './components/Transactions'
 import Inventory from './components/Inventory'
 import Users from './components/Users'
-import Profile from './components/Profile' // <--- ADDED MISSING IMPORT
+import Profile from './components/Profile' // <--- 1. IMPORT ADDED
 
 const PrivateRoute = ({ children, requiredRoles }) => {
   const { currentUser, userRole, loading } = useAuth()
@@ -82,7 +82,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* MOVED PROFILE ROUTE INSIDE <Routes> */}
+      {/* <--- 2. PROFILE ROUTE ADDED */}
       <Route
         path="/profile"
         element={
