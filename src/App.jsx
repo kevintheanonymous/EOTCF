@@ -15,7 +15,12 @@ const PrivateRoute = ({ children, requiredRoles }) => {
   const { currentUser, userRole, loading } = useAuth()
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    // STYLED LOADING SPINNER
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-warm-parchment">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-stone-200 border-t-deep-gold"></div>
+      </div>
+    )
   }
 
   if (!currentUser) {
@@ -94,4 +99,3 @@ function App() {
 }
 
 export default App
-
