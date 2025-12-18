@@ -83,6 +83,14 @@ const AppRoutes = () => {
       
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
+    <Route
+        path="/profile"
+        element={
+          <PrivateRoute requiredRoles={['admin', 'treasurer', 'member']}>
+            <Profile />
+          </PrivateRoute>
+        }
+      />
   )
 }
 
