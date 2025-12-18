@@ -6,7 +6,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import LanguageSelector from './LanguageSelector'
 
 const Layout = ({ children }) => {
-  const { userRole, logout } = useAuth()
+  const { userRole, logout, currentUser } = useAuth() // Get currentUser
   const { language } = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
@@ -26,7 +26,10 @@ const Layout = ({ children }) => {
     { path: '/inventory', label: t('inventory'), icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4", roles: ['admin', 'treasurer', 'member'] },
     { path: '/users', label: t('users'), icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", roles: ['admin'] }
   ]
-
+  
+  // ADD: Profile link to navItems (always visible for logged in users)
+  // Or add it separately in the bottom section
+  
   // Custom Ethiopian Cross SVG
   const EOTCCross = () => (
     <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
@@ -103,6 +106,19 @@ const Layout = ({ children }) => {
             <p className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Language</p>
             <LanguageSelector />
           </div>
+          
+          {/* New Profile Link */}
+          <Link
+            to="/profile"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="flex items-center gap-2 w-full px-4 py-3 text-dark-brown hover:bg-stone-50 rounded-xl transition-colors font-medium text-sm mb-2"
+          >
+            <svg className="w-5 h-5 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            My Profile
+          </Link>
+
           <button onClick={handleLogout} className="flex items-center gap-2 w-full px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium text-sm">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
             {t('logout')}
