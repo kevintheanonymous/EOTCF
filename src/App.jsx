@@ -10,12 +10,12 @@ import Dashboard from './components/Dashboard'
 import Transactions from './components/Transactions'
 import Inventory from './components/Inventory'
 import Users from './components/Users'
+import Profile from './components/Profile' // <--- 1. ADDED IMPORT
 
 const PrivateRoute = ({ children, requiredRoles }) => {
   const { currentUser, userRole, loading } = useAuth()
 
   if (loading) {
-    // STYLED LOADING SPINNER
     return (
       <div className="min-h-screen flex items-center justify-center bg-warm-parchment">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-stone-200 border-t-deep-gold"></div>
@@ -80,10 +80,9 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
-      
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-    </Routes>
-    <Route
+
+      {/* <--- 2. MOVED INSIDE <Routes> */}
+      <Route
         path="/profile"
         element={
           <PrivateRoute requiredRoles={['admin', 'treasurer', 'member']}>
@@ -91,6 +90,9 @@ const AppRoutes = () => {
           </PrivateRoute>
         }
       />
+      
+      <Route path="/" element={<Navigate to="/dashboard" />} />
+    </Routes>
   )
 }
 
