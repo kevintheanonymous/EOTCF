@@ -58,6 +58,18 @@ const Users = () => {
     }
   }
 
+  // New function to delete active users
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to permanently delete this user account?')) {
+      try {
+        await deleteDoc(doc(db, 'users', userId))
+        loadUsers()
+      } catch (error) {
+        alert('Error deleting user: ' + error.message)
+      }
+    }
+  }
+
   const handleRoleChange = async (userId, newRole) => {
     try {
       await updateDoc(doc(db, 'users', userId), { role: newRole })
@@ -162,12 +174,13 @@ const Users = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('email')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('role')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('changeRole')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {activeUsers.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
                       {t('noActiveUsers')}
                     </td>
                   </tr>
@@ -193,6 +206,14 @@ const Users = () => {
                           <option value="admin">{t('admin')}</option>
                         </select>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-liturgical-red hover:text-red-800 font-medium"
+                        >
+                          {t('delete')}
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -206,4 +227,3 @@ const Users = () => {
 }
 
 export default Users
-
