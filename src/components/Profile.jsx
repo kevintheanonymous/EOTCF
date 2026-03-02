@@ -73,8 +73,8 @@ const Profile = () => {
         <div className="flex justify-center">
             <EOTCCross />
         </div>
-        <h1 className="text-3xl font-serif font-bold text-dark-brown">{t('profile') || 'My Profile'}</h1>
-        <p className="text-stone-500">Manage your personal information</p>
+        <h1 className="text-3xl font-serif font-bold text-dark-brown">{t('profile')}</h1>
+        <p className="text-stone-500">{t('manageProfile')}</p>
       </div>
 
       <div className="card bg-white shadow-soft rounded-2xl p-8 border border-stone-100">
@@ -111,7 +111,7 @@ const Profile = () => {
               disabled={true} // Email cannot be changed easily
               className="input-field bg-stone-50 text-stone-500 border-transparent cursor-not-allowed opacity-75"
             />
-            <p className="text-xs text-stone-400 mt-1">To change your email, please contact an administrator.</p>
+            <p className="text-xs text-stone-400 mt-1">{t('emailChangeNote')}</p>
           </div>
 
           <div>
@@ -140,15 +140,15 @@ const Profile = () => {
             {isEditing ? (
               <>
                 <button type="button" onClick={() => setIsEditing(false)} className="btn-secondary flex-1">
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <button type="submit" disabled={loading} className="btn-primary flex-1">
-                  Save Changes
+                  {t('saveChanges')}
                 </button>
               </>
             ) : (
               <button type="button" onClick={() => setIsEditing(true)} className="btn-primary w-full">
-                Edit Profile
+                {t('editProfile')}
               </button>
             )}
           </div>

@@ -4,7 +4,9 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  sendPasswordResetEmail // <--- Import this
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  reload
 } from 'firebase/auth'
 import { 
   doc, 
@@ -12,6 +14,7 @@ import {
   setDoc
 } from 'firebase/firestore'
 import { auth, db } from '../config/firebase'
+import { updateSessionActivity, clearSession, resetLoginAttempts } from '../utils/security'
 
 const AuthContext = createContext()
 
@@ -27,8 +30,23 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null)
   const [userRole, setUserRole] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   const ADMIN_EMAIL = 'eotctoulousefinance@gmail.com' 
+
+  // Monitor online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, []) 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -72,8 +90,18 @@ export const AuthProvider = ({ children }) => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
       const role = email === ADMIN_EMAIL ? 'admin' : 'pending'
-      await setDoc(doc(db, 'users', user.uid), { ...userData, email, role, createdAt: new Date() })
-      return { success: true }
+      
+      // Send email verification
+      await sendEmailVerification(user)
+      
+      await setDoc(doc(db, 'users', user.uid), { 
+        ...userData, 
+        email, 
+        role, 
+        emailVerified: false,
+        createdAt: new Date() 
+      })
+      return { success: true, emailSent: true }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -81,8 +109,15 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password)
-      return { success: true }
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      
+      // Reset failed login attempts on success
+      resetLoginAttempts()
+      
+      // Update session activity
+      updateSessionActivity()
+      
+      return { success: true, emailVerified: result.user.emailVerified }
     } catch (error) {
       return { success: false, error: error.message }
     }
@@ -90,6 +125,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      clearSession()
       await signOut(auth)
       return { success: true }
     } catch (error) {
@@ -97,7 +133,32 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // --- NEW FUNCTION ---
+  // Resend email verification
+  const resendVerificationEmail = async () => {
+    try {
+      if (currentUser && !currentUser.emailVerified) {
+        await sendEmailVerification(currentUser)
+        return { success: true }
+      }
+      return { success: false, error: 'No user or already verified' }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  // Check email verification status
+  const checkEmailVerification = async () => {
+    try {
+      if (currentUser) {
+        await reload(currentUser)
+        return currentUser.emailVerified
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
   const resetPassword = async (email) => {
     try {
       await sendPasswordResetEmail(auth, email)
@@ -107,7 +168,18 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const value = { currentUser, userRole, signup, login, logout, resetPassword, loading }
+  const value = { 
+    currentUser, 
+    userRole, 
+    signup, 
+    login, 
+    logout, 
+    resetPassword, 
+    resendVerificationEmail,
+    checkEmailVerification,
+    isOnline,
+    loading 
+  }
 
   return (
     <AuthContext.Provider value={value}>

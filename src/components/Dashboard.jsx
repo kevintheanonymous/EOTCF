@@ -206,10 +206,10 @@ const Dashboard = () => {
           {t('aiFinancialAdvisor')}
         </h2>
         <p className="text-stone-600 leading-relaxed max-w-4xl relative z-10">
-          {aiLoading ? t('loading') : (aiInsight || "Click the button below to generate an AI analysis of your current financial standing.")}
+          {aiLoading ? t('loading') : (aiInsight || t('aiInsightPrompt'))}
         </p>
         <button onClick={getAiInsight} disabled={aiLoading} className="mt-6 btn-primary text-sm px-6 py-2 relative z-10">
-          {aiLoading ? 'Analyzing...' : 'Generate Insight'}
+          {aiLoading ? t('analyzing') : t('generateInsight')}
         </button>
       </div>
 

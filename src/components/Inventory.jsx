@@ -254,7 +254,7 @@ const Inventory = () => {
                   required
                   className="w-full px-4 py-2 border rounded-lg"
                 >
-                  <option value="">Select...</option>
+                  <option value="">{t('select')}</option>
                   {itemTypes.map((type, idx) => (
                     <option key={idx} value={type}>{type}</option>
                   ))}

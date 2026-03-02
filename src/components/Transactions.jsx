@@ -185,7 +185,7 @@ const Transactions = () => {
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-1">{t('category')}</label>
                 <select name="category" value={formData.category} onChange={handleChange} required className="input-field">
-                  <option value="">Select Category...</option>
+                  <option value="">{t('selectCategory')}</option>
                   {categories.map((cat, idx) => <option key={idx} value={cat}>{cat}</option>)}
                 </select>
               </div>
